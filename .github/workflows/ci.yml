@@ -1,4 +1,4 @@
-# Community edition CI: ESP-IDF build with sdkconfig.defaults.community, and the simulator's
+# Community edition CI: ESP-IDF build (Community by default), host tests and the simulator's
 # UI snapshot tests. This file is not in the private repo's workflows; it ships from
 # tools/community/public/ (docs/10 §5).
 name: ci
@@ -34,9 +34,9 @@ jobs:
           # Checkout is owned by another uid inside the container; IDF runs git describe.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           . "$IDF_PATH/export.sh"
+          # sdkconfig.defaults has CONFIG_S3W_EDITION_PRO=n: a plain build is the Community edition.
           idf.py set-target esp32s3
-          idf.py -B build-community -D SDKCONFIG=build-community/sdkconfig \
-            -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.community" build
+          idf.py build
 
       - name: Size report
         run: |
@@ -44,7 +44,7 @@ jobs:
           {
             echo '### Firmware size (Community)'
             echo '```'
-            idf.py -B build-community size
+            idf.py size
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -52,10 +52,10 @@ jobs:
         with:
           name: firmware-community-${{ github.sha }}
           path: |
-            firmware/build-community/*.bin
-            firmware/build-community/flash_args
-            firmware/build-community/bootloader/bootloader.bin
-            firmware/build-community/partition_table/partition-table.bin
+            firmware/build/*.bin
+            firmware/build/flash_args
+            firmware/build/bootloader/bootloader.bin
+            firmware/build/partition_table/partition-table.bin
           if-no-files-found: error
 
   simulator:
@@ -73,7 +73,7 @@ jobs:
       # firmware/test/ui_snapshots/community/<name>.png.
       - name: Build
         run: |
-          cmake -S firmware/simulator -B build/sim-community -DS3W_EDITION_PRO=OFF
+          cmake -S firmware/simulator -B build/sim-community
           cmake --build build/sim-community --parallel
 
       - name: Snapshot tests

@@ -14,11 +14,10 @@ Thanks for helping. This repository is the **Community edition** of S3Wear, a sm
 ## Build and test
 ```bash
 # Firmware (ESP-IDF v5.5.x exported)
-cd firmware && idf.py set-target esp32s3 && idf.py -B build-community -D SDKCONFIG=build-community/sdkconfig \
-    -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.community" build
+cd firmware && idf.py set-target esp32s3 && idf.py build
 
 # Simulator UI snapshot tests
-cmake -S firmware/simulator -B build/sim -DS3W_EDITION_PRO=OFF && cmake --build build/sim && ctest --test-dir build/sim
+cmake -S firmware/simulator -B build/sim && cmake --build build/sim && ctest --test-dir build/sim
 
 # Host unit tests
 cmake -S firmware/host_test -B build/host_test && cmake --build build/host_test && ctest --test-dir build/host_test

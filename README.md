@@ -28,13 +28,11 @@ From the SDL2 simulator at the panel's native 410×502, Community build. These a
 
 ```bash
 # Firmware (ESP-IDF v5.5.x exported)
-cd firmware && idf.py set-target esp32s3
-idf.py -B build-community -D SDKCONFIG=build-community/sdkconfig \
-    -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.community" build
-idf.py -B build-community -p /dev/cu.usbmodem* flash monitor
+cd firmware && idf.py set-target esp32s3 && idf.py build
+idf.py -p /dev/cu.usbmodem* flash monitor
 
 # Simulator (SDL2) and its snapshot tests
-cmake -S firmware/simulator -B build/sim -DS3W_EDITION_PRO=OFF && cmake --build build/sim
+cmake -S firmware/simulator -B build/sim && cmake --build build/sim
 ./build/sim/s3w_sim
 ctest --test-dir build/sim
 

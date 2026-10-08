@@ -26,7 +26,8 @@ target_compile_options(${lvgl_lib} PRIVATE -O2)
 # reason; at -Og the canvas benchmark (`app run bench`) could not hold 30 fps (P8-03).
 # The Community export has no mini apps (docs/10 §3): WAMR is not built and app_runtime is an
 # empty (interface) component there.
-if(CONFIG_S3W_EDITION_PRO)
+idf_build_get_property(s3w_build_components BUILD_COMPONENTS)
+if("espressif__wasm-micro-runtime" IN_LIST s3w_build_components)
     idf_component_get_property(wamr_lib espressif__wasm-micro-runtime COMPONENT_LIB)
     target_compile_options(${wamr_lib} PRIVATE -O2)
 endif()

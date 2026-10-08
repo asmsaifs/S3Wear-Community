@@ -150,3 +150,6 @@ CONFIG_LWIP_SNTP_UPDATE_DELAY=21600000
 
 # --- FreeRTOS: notification index 1 wakes the UI task (index 0 is LVGL's thread sync) ---
 CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES=2
+
+# --- Edition: this repository is the Community edition (docs/10 §3) ---
+CONFIG_S3W_EDITION_PRO=n

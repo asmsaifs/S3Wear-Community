@@ -12,7 +12,7 @@ cmake_minimum_required(VERSION 3.16)
 project(s3w_sim LANGUAGES C CXX)
 enable_testing()
 
-option(S3W_EDITION_PRO "Pro edition (OFF: Community, docs/10 §3)" ON)
+option(S3W_EDITION_PRO "Pro edition (OFF: Community, docs/10 §3)" OFF)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
