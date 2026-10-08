@@ -1,0 +1,11 @@
+# DND turned off by hand inside its scheduled window stays off (the rest of the
+# window is skipped); reopening quick settings shows it off.
+sched dnd 09:00 11:00
+swipe 205 120 205 400
+wait 400
+tap 64 110     # Do not disturb: off
+wait 300
+swipe 205 420 205 120
+wait 400
+swipe 205 120 205 400
+wait 400

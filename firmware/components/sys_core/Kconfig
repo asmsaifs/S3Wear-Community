@@ -1,0 +1,11 @@
+menu "S3Wear core (sys_core)"
+
+    config S3W_LVGL_THREAD_CHECK
+        bool "Assert on LVGL access without lv_lock()"
+        default y
+        help
+            Debug aid: the LVGL port aborts with a backtrace when an LVGL object is
+            invalidated or LVGL memory is allocated by a task that does not hold
+            lv_lock() (the UI task always does). Off in release builds.
+
+endmenu

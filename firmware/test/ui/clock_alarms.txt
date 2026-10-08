@@ -1,0 +1,3 @@
+# Alarms list (simulator demo alarms): next alarm, time, repeat days, label, on/off switch.
+push alarms
+wait 400

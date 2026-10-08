@@ -1,0 +1,4 @@
+# s3w.dial while the time is unknown: no hands, "--" date, "Time not set" hint.
+face s3w.dial
+time unknown
+wait 100

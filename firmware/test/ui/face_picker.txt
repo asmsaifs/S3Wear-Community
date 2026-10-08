@@ -1,0 +1,3 @@
+# Long-press on the watch face opens the picker at the active face (Digital Bold).
+hold 205 200
+wait 400

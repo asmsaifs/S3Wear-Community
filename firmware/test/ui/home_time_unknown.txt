@@ -1,0 +1,3 @@
+# Home screen while the time is unknown (RTC lost power, never synced): "--:--" and a hint.
+time unknown
+wait 100

@@ -1,0 +1,67 @@
+# Protocol: generated code is current, golden vectors pass with nanopb (C) and Wire (Kotlin).
+# docs/06-ble-protocol.md §7, docs/08-quality-ci-release.md §3.
+name: protocol
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "protocol/**"
+      - "tools/gen_proto.sh"
+      - "tools/gen_testvectors.py"
+      - "firmware/components/proto/**"
+      - "firmware/components/nanopb/**"
+      - "firmware/host_test/**"
+      - "android/core/protocol/**"
+      - "android/gradle/libs.versions.toml"
+      - ".github/workflows/protocol.yml"
+  pull_request:
+    paths:
+      - "protocol/**"
+      - "tools/gen_proto.sh"
+      - "tools/gen_testvectors.py"
+      - "firmware/components/proto/**"
+      - "firmware/components/nanopb/**"
+      - "firmware/host_test/**"
+      - "android/core/protocol/**"
+      - "android/gradle/libs.versions.toml"
+      - ".github/workflows/protocol.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Codegen + golden vectors
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Generated code matches committed output
+        run: tools/gen_proto.sh --check
+
+      - name: Golden vectors (C, nanopb)
+        run: |
+          cmake -S firmware/host_test -B build/host_test
+          cmake --build build/host_test --target test_proto_vectors --parallel
+          ctest --test-dir build/host_test --output-on-failure -R GoldenVectors
+
+      - name: Golden vectors (Kotlin, Wire)
+        working-directory: android
+        run: ./gradlew :core:protocol:test

@@ -1,0 +1,4 @@
+# Diagnostics: esp_console over USB-Serial-JTAG (docs/02-firmware-architecture.md §11).
+idf_component_register(SRCS "svc_diag.c" "cmd_i2c.c" "cmd_lcd.c" "cmd_touch.c" "cmd_rtc.c" "cmd_time.c" "cmd_pmu.c" "cmd_imu.c" "cmd_audio.c" "cmd_fs.c" "cmd_factory.c" "cmd_ui.c" "cmd_face.c" "cmd_settings.c" "cmd_power.c" "cmd_input.c" "cmd_sensors.c" "cmd_sys.c" "cmd_crash.c" "cmd_metrics.c" "cmd_alarm.c" "cmd_modes.c" "metrics_ring.c" "svc_diag_metrics.c"
+                       INCLUDE_DIRS "include"
+                       PRIV_REQUIRES console svc_alarm svc_audio svc_modes svc_settings svc_power svc_input svc_sensors svc_time esp_pm bsp_s3w drv_audio svc_storage factory_test sys_core heap ui_framework watchfaces lvgl esp_lcd esp_timer esp_event log espcoredump esp_partition mbedtls nvs_flash svc_worker esp_system freertos)

@@ -1,0 +1,11 @@
+# Reset clears the time and the laps.
+push stopwatch
+wait 400
+tap 290 270   # Start
+wait 2000
+tap 120 270   # Lap
+wait 500
+tap 290 270   # Stop
+wait 100
+tap 120 270   # Reset
+wait 300

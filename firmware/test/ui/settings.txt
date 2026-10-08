@@ -1,0 +1,3 @@
+# Settings app (P3-10): the top page, one row per F18 group.
+push settings
+wait 400

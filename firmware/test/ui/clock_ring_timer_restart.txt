@@ -1,0 +1,7 @@
+# Restart runs the timer again from its full duration.
+timer 2
+wait 2600
+tap 205 457   # Restart
+wait 500
+push timer
+wait 400

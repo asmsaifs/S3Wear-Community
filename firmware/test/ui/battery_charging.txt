@@ -1,0 +1,5 @@
+# Charging screen (P3-09): USB power plugged in on the face slides it up; the
+# segment runs around the ring while charging. No estimate yet (just plugged in).
+battery 42
+charger in
+wait 700

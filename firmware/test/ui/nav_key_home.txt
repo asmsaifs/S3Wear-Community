@@ -1,0 +1,11 @@
+# BACK pops one screen, POWER goes home; must equal home.png.
+push gallery
+wait 400
+push gallery.lists
+wait 400
+key back
+wait 400
+push gallery.text
+wait 400
+key power
+wait 400

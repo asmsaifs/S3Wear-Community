@@ -1,0 +1,5 @@
+# Tapping an alarm opens the editor: 24 h pickers, repeat days, snooze length.
+push alarms
+wait 400
+tap 150 200   # 07:00 row
+wait 400

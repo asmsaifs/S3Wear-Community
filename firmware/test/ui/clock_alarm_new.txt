@@ -1,0 +1,5 @@
+# Add alarm: a new alarm starts at the next full hour (11:00), once.
+push alarms
+wait 400
+tap 205 407   # Add alarm
+wait 400

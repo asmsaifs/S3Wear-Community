@@ -1,0 +1,7 @@
+# Stopped: the left button becomes Reset.
+push stopwatch
+wait 400
+tap 290 270   # Start
+wait 3210
+tap 290 270   # Stop
+wait 300

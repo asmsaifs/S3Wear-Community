@@ -1,0 +1,6 @@
+# Picker -> Customize on Modular: one row per slot with its complication, and the colour.
+face modular
+hold 205 120
+wait 400
+tap 205 446
+wait 400

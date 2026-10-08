@@ -1,0 +1,81 @@
+// S3W Link control-channel messages. Spec: docs/06-ble-protocol.md.
+//
+// Rules: never reuse or renumber a field; add new fields and messages only.
+// Every message has a golden vector in protocol/testvectors/.
+// Declare fields in ascending field-number order so all encoders emit the
+// same bytes (golden vectors compare re-encoded output).
+// String limits (bytes, UTF-8) are enforced by the watch (nanopb options in
+// envelope.options); senders must not exceed them.
+syntax = "proto3";
+
+package s3w.v1;
+
+option java_package = "com.s3wear.protocol.v1";
+
+// Every control-channel message is one Envelope (docs/06 §3).
+message Envelope {
+  uint32 id = 1;       // sender-assigned; non-zero for requests, 0 for events
+  uint32 reply_to = 2; // id of the request this answers; 0 = not a reply
+  Status status = 3;   // set on replies
+  // Field numbers follow docs/06 §3; 14 and up are added with their features.
+  oneof body {
+    Hello hello = 10;
+    HelloAck hello_ack = 11;
+    TimeSync time_sync = 12;
+    Ack ack = 13;
+  }
+}
+
+// Values for Status.code. Status.code stays int32 so a code unknown to an
+// older peer is still delivered instead of decoding as STATUS_OK.
+enum StatusCode {
+  STATUS_OK = 0;
+  STATUS_UNSUPPORTED = 1;
+  STATUS_INVALID = 2;
+  STATUS_BUSY = 3;
+  STATUS_NO_SPACE = 4;
+  STATUS_DENIED = 5;
+  STATUS_INTERNAL = 6;
+  STATUS_LOW_BATTERY = 7;
+}
+
+message Status {
+  int32 code = 1;     // StatusCode
+  string message = 2; // ≤ 95 bytes, for logs; not shown to users
+}
+
+// Phone → watch, first message of a session (docs/06 §4).
+message Hello {
+  uint32 proto_major = 1;
+  uint32 proto_minor = 2;
+  string app_version = 3;    // ≤ 31 bytes
+  repeated string caps = 4;  // ≤ 32 entries, each ≤ 23 bytes, e.g. "notif.actions"
+  string phone_model = 5;    // ≤ 63 bytes
+  string locale = 6;         // BCP 47, ≤ 35 bytes
+  string tz_name = 7;        // IANA, ≤ 63 bytes
+}
+
+// Watch → phone, reply to Hello. Envelope.status = UNSUPPORTED on major mismatch.
+message HelloAck {
+  uint32 proto_major = 1;
+  uint32 proto_minor = 2;
+  string fw_version = 3;      // ≤ 31 bytes
+  string hw_rev = 4;          // ≤ 15 bytes
+  string serial = 5;          // ≤ 31 bytes
+  repeated string caps = 6;   // ≤ 32 entries, each ≤ 23 bytes
+  uint32 battery_pct = 7;     // 0-100
+  uint32 storage_free_kb = 8;
+  uint32 storage_total_kb = 9;
+  uint32 api_level = 10;      // mini app API level (docs/05)
+}
+
+// Phone → watch: wall-clock time and time zone.
+message TimeSync {
+  int64 unix_ms = 1;
+  string tz_posix = 2; // POSIX TZ string, e.g. "<+06>-6", ≤ 63 bytes
+  string tz_name = 3;  // IANA, ≤ 63 bytes
+  bool is_24h = 4;
+}
+
+// Reply body for requests that return no data; the outcome is Envelope.status.
+message Ack {}

@@ -1,0 +1,7 @@
+# A feature that has not arrived yet (Health) says so.
+push settings
+wait 400
+swipe 205 420 205 60
+wait 300
+tap 205 81
+wait 300

@@ -1,0 +1,3 @@
+# Swipe right on the face: launcher list from the left.
+swipe 60 250 350 250
+wait 400

@@ -1,0 +1,7 @@
+# Tap a city and confirm: it is removed.
+push world_clock
+wait 400
+tap 150 150   # Tokyo
+wait 300
+tap 205 247   # Remove
+wait 400

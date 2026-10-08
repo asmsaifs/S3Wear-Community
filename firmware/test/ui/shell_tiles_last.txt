@@ -1,0 +1,15 @@
+# Past the last tile (Heart rate) a swipe left does nothing.
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400

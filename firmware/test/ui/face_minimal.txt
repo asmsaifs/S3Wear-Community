@@ -1,0 +1,3 @@
+# minimal face with the simulator's demo data.
+face minimal
+wait 100

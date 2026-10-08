@@ -1,0 +1,11 @@
+# System page, scrolled to Factory reset (red).
+push settings
+wait 400
+swipe 205 450 205 50
+swipe 205 450 205 50
+swipe 205 450 205 50
+wait 400
+tap 205 345
+wait 400
+swipe 205 450 205 50
+wait 300

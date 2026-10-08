@@ -1,0 +1,17 @@
+{
+  "id": 7,
+  "replyTo": 1,
+  "status": {},
+  "helloAck": {
+    "protoMajor": 1,
+    "protoMinor": 0,
+    "fwVersion": "0.1.0",
+    "hwRev": "A1",
+    "serial": "S3W-0001",
+    "caps": ["notif.actions", "ota.ble", "apps.v1"],
+    "batteryPct": 82,
+    "storageFreeKb": 12288,
+    "storageTotalKb": 16384,
+    "apiLevel": 1
+  }
+}

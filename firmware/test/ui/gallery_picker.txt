@@ -1,0 +1,3 @@
+# Widget gallery page "gallery.picker".
+push gallery.picker
+wait 400

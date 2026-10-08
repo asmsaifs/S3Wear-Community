@@ -1,0 +1,11 @@
+# The nav screen is deleted by another module (lcd bars / factory test) with a stack
+# of three screens and a toast; ui_start() brings home back. Must equal home.png.
+push gallery
+wait 400
+push gallery.lists
+wait 100
+toast Hi
+clobber
+wait 300
+start
+wait 2500

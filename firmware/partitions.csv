@@ -1,0 +1,10 @@
+# S3Wear partition table, 32 MB flash. Source: docs/02-firmware-architecture.md §8.
+# Name,    Type, SubType,  Offset,    Size
+nvs,       data, nvs,      0x9000,    0x6000
+otadata,   data, ota,      0xF000,    0x2000
+phy_init,  data, phy,      0x11000,   0x1000
+nvs_keys,  data, nvs_keys, 0x12000,   0x1000
+ota_0,     app,  ota_0,    0x20000,   0x600000
+ota_1,     app,  ota_1,    0x620000,  0x600000
+coredump,  data, coredump, 0xC20000,  0x10000
+storage,   data, littlefs, 0xC30000,  0x13D0000

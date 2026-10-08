@@ -1,0 +1,5 @@
+# A tap on the charging screen goes back to the face (docs/03 F5: face still reachable).
+charger in
+wait 700
+tap 205 250
+wait 500

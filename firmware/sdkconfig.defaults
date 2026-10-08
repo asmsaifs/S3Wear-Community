@@ -1,0 +1,108 @@
+# S3Wear — base configuration (debug/dev). Release overrides will go in sdkconfig.defaults.release (not yet created).
+# Board: Waveshare ESP32-S3-Touch-AMOLED-2.06 (ESP32-S3R8, 8 MB octal PSRAM, 32 MB QSPI flash).
+
+# --- Target / CPU ---
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# --- Caches: 32 KB instruction cache (default 16 KB). LVGL rendering is bound by
+# I-cache misses: scroll 19.9 -> 29.9 fps for 16 KB of internal RAM (P2-04, docs/02 §6).
+# A 64 KB data cache or 64 B lines gained nothing measurable. ---
+CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB=y
+
+# --- Flash: 32 MB, QIO, 80 MHz ---
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
+
+# --- Partition table (docs/02-firmware-architecture.md §8) ---
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# --- PSRAM: octal, 80 MHz, malloc > 4 KB goes to PSRAM (docs/02 §6) ---
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+
+# --- Console on USB-Serial-JTAG ---
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# --- Power management: DFS 40-240 MHz + automatic light sleep, configured by svc_power
+# (P2-06, docs/02 §7). Light-sleep entry/exit counters for `power` / `pm stats`.
+# While a USB host is connected the USB-Serial-JTAG console holds a no-light-sleep
+# lock (light sleep would drop the port); on battery or a charger the watch sleeps.
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+CONFIG_PM_LIGHT_SLEEP_CALLBACKS=y
+CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y
+# Time per PM lock and mode (`pm stats`); costs ~0.3 fps in `lcd bench scroll`, off in release.
+CONFIG_PM_PROFILING=y
+# CPU power-down in light sleep would save ~650 uA but takes ~17 KB of internal RAM
+# (CPU context + cache tag backup; IDF 5.5.1 does not build with the tag backup off),
+# which breaks the 40 KB internal-heap floor (docs/02 §6). Revisit in P10 power tuning.
+CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP=n
+
+# --- FreeRTOS ---
+CONFIG_FREERTOS_HZ=1000
+# `tasks` console command (uxTaskGetSystemState)
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID=y
+
+# --- Core dump to the `coredump` partition (64 KB), ELF format, retrievable with the
+# console `coredump dump` (P2-08, docs/02 §11). Panic reboots; the dump is kept until erased. ---
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+CONFIG_ESP_COREDUMP_CHECKSUM_CRC32=y
+CONFIG_ESP_COREDUMP_CHECK_BOOT=y
+CONFIG_ESP_COREDUMP_MAX_TASKS_NUM=64
+
+# --- C++: C++20 set in CMakeLists.txt; no exceptions, no RTTI ---
+CONFIG_COMPILER_CXX_EXCEPTIONS=n
+CONFIG_COMPILER_CXX_RTTI=n
+
+# --- SPI: the LCD color-done ISR calls LVGL (flash code), so it must not be IRAM-only ---
+CONFIG_SPI_MASTER_ISR_IN_IRAM=n
+
+# --- LVGL 9 (ui_framework/lvgl_port) ---
+CONFIG_LV_COLOR_DEPTH_16=y
+# lv_malloc -> PSRAM, implemented in s3w_lvgl_port.c
+CONFIG_LV_USE_CUSTOM_MALLOC=y
+CONFIG_LV_USE_CLIB_STRING=y
+# lv_lock()/lv_unlock() for calls from non-UI tasks
+CONFIG_LV_OS_FREERTOS=y
+CONFIG_LV_DEF_REFR_PERIOD=16
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_24=y
+CONFIG_LV_FONT_MONTSERRAT_48=y
+# s3w_qr (ui_framework widgets); UI fonts are Inter, see tools/fonts/gen_fonts.sh
+CONFIG_LV_USE_QRCODE=y
+# Bring-up demo (console `lcd demo`); removed from release builds later.
+CONFIG_LV_USE_DEMO_WIDGETS=y
+
+# --- FreeRTOS timer task runs button debounce and deferred RTC/PMU IRQ handling (I2C + log) ---
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
+
+# --- FATFS (TF card): long file names on the heap ---
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# --- Bluetooth: NimBLE host, BLE only (PLAN.md §2). Host memory from PSRAM. ---
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# --- Wi-Fi / LwIP buffers may live in PSRAM (Wi-Fi is off by default) ---
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+# Keep internal RAM for LVGL draw buffers and stacks: Wi-Fi hot paths run from flash
+# (Wi-Fi is only on for OTA/store/HA; its buffers are in PSRAM, see above).
+CONFIG_ESP_WIFI_IRAM_OPT=n
+CONFIG_ESP_WIFI_RX_IRAM_OPT=n
+
+# --- FreeRTOS: notification index 1 wakes the UI task (index 0 is LVGL's thread sync) ---
+CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES=2

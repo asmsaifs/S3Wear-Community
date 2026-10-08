@@ -1,0 +1,4 @@
+# Plugged in at 100 %: "Charged", no running segment.
+battery 100
+charger in
+wait 700

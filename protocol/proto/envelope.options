@@ -1,0 +1,18 @@
+# nanopb options for envelope.proto: fixed-size buffers, no malloc on the watch.
+# max_size includes the NUL terminator. Keep in sync with the limits in the
+# .proto comments.
+s3w.v1.Status.message       max_size:96
+
+s3w.v1.Hello.app_version    max_size:32
+s3w.v1.Hello.caps           max_count:32 max_size:24
+s3w.v1.Hello.phone_model    max_size:64
+s3w.v1.Hello.locale         max_size:36
+s3w.v1.Hello.tz_name        max_size:64
+
+s3w.v1.HelloAck.fw_version  max_size:32
+s3w.v1.HelloAck.hw_rev      max_size:16
+s3w.v1.HelloAck.serial      max_size:32
+s3w.v1.HelloAck.caps        max_count:32 max_size:24
+
+s3w.v1.TimeSync.tz_posix    max_size:64
+s3w.v1.TimeSync.tz_name     max_size:64

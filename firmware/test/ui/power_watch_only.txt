@@ -1,0 +1,5 @@
+# WATCH-ONLY screen (P3-09): the time and battery %, burn-in offset of 10:09.
+battery 3
+watchonly
+wait 100
+lit 3

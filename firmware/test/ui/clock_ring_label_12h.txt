@@ -1,0 +1,6 @@
+# Ring screen with a label in 12 h format (6:15 AM).
+clock 12
+alarm clear
+alarm 06:15 daily Wake up
+ring alarm
+wait 400

@@ -1,0 +1,3 @@
+# Widget gallery page "gallery.rings".
+push gallery.rings
+wait 400

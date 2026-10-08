@@ -1,0 +1,3 @@
+# 3 %: watch only starts in a minute; "Start now" enters it at once.
+low 3
+wait 400

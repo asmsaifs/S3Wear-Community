@@ -1,0 +1,5 @@
+# Tap a complication: its app opens, or a toast while the app does not exist yet.
+face modular
+wait 100
+tap 75 288
+wait 300

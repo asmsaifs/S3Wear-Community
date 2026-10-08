@@ -1,0 +1,8 @@
+# In 12 h format the schedule times read "10:00 PM".
+clock 12
+push settings
+wait 400
+tap 205 336
+wait 400
+tap 205 240
+wait 400

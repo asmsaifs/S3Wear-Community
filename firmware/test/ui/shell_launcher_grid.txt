@@ -1,0 +1,4 @@
+# LAUNCHER_GRID on: honeycomb grid of app icons.
+launcher grid
+swipe 60 250 350 250
+wait 400

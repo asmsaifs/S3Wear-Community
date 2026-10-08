@@ -1,0 +1,5 @@
+# Swipe up closes quick settings. Golden equals home.png.
+swipe 205 120 205 400
+wait 400
+swipe 205 420 205 120
+wait 400

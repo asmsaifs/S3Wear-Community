@@ -1,0 +1,8 @@
+# A switch row: tapping the row turns the setting on in the backend.
+push settings
+wait 400
+tap 205 145
+wait 400
+tap 205 358
+wait 300
+setting-is disp_aod 1

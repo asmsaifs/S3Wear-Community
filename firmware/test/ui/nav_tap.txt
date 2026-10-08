@@ -1,0 +1,5 @@
+# Navigation by touch: gallery -> "Lists" row.
+push gallery
+wait 400
+tap 200 300
+wait 400

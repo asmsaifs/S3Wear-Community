@@ -1,0 +1,22 @@
+# Overrides on top of detekt's default config (buildUponDefaultConfig = true).
+config:
+  validation: true
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase by convention.
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    # Compose tokens such as `val Accent = Color(...)`.
+    privatePropertyPattern: '[A-Za-z][A-Za-z0-9]*'
+
+complexity:
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']

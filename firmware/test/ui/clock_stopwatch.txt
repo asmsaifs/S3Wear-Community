@@ -1,0 +1,9 @@
+# Stopwatch running with two laps (newest first).
+push stopwatch
+wait 400
+tap 290 270   # Start
+wait 12340
+tap 120 270   # Lap
+wait 5000
+tap 120 270   # Lap
+wait 1000

@@ -1,0 +1,3 @@
+# analog face with the simulator's demo data.
+face analog
+wait 100

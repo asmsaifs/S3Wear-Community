@@ -1,0 +1,7 @@
+# Left-edge swipe pops gallery.lists; must equal gallery.png.
+push gallery
+wait 400
+push gallery.lists
+wait 400
+swipe 6 250 200 250
+wait 400

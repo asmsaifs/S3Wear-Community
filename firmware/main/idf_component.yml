@@ -1,0 +1,20 @@
+## Managed dependencies. Versions are pinned exactly; dependencies.lock is committed.
+## Bump only as a dedicated task and re-run the full build + hardware smoke test.
+##
+## nanopb is NOT listed here: it is vendored in components/nanopb (nanopb-0.4.9.2),
+## see components/nanopb/README.md for why.
+dependencies:
+  idf:
+    version: ">=5.5.0,<5.6.0"
+  lvgl/lvgl:
+    version: "==9.3.0"
+  espressif/esp_lcd_touch_ft5x06:
+    version: "==1.1.1"
+  espressif/esp_codec_dev:
+    version: "==1.6.2"
+  joltwallet/littlefs:
+    version: "==1.22.3"
+  espressif/esp-sr:
+    version: "==2.5.5"
+  espressif/wasm-micro-runtime:
+    version: "==2.4.0~1"

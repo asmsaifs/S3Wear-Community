@@ -1,0 +1,7 @@
+# Choice screen: the options with a tick on the current one (Screen timeout, 10 s).
+push settings
+wait 400
+tap 205 145
+wait 400
+tap 205 263
+wait 400

@@ -1,0 +1,26 @@
+{
+  "id": "s3w.neon",
+  "name": "Neon",
+  "version": "1.0.0",
+  "api": 1,
+  "author": "S3Wear",
+  "description": "Sample declarative face: cyan time, seconds, steps ring, battery.",
+  "background": "#000000",
+  "elements": [
+    {"type": "arc", "bind": "steps.goal_ratio", "x": 205, "y": 251, "r": 195, "w": 10,
+     "start": 135, "end": 405, "color": "#76FF03", "track": "#1A3300"},
+    {"type": "text", "bind": "date.EEE d MMM", "x": 205, "y": 112, "font": "body_26",
+     "color": "#9A9AA0", "upper": true},
+    {"type": "text", "bind": "time.hh:mm", "x": 205, "y": 205, "font": "digits_96", "color": "#00E5FF"},
+    {"type": "text", "bind": "time.ss", "x": 205, "y": 278, "font": "title_32", "color": "#FF4FD8"},
+    {"type": "text", "bind": "steps.count", "x": 205, "y": 318, "font": "caption_22", "color": "#76FF03"},
+    {"type": "complication", "slot": "bottom", "x": 205, "y": 404, "style": "circle", "default": "battery"}
+  ],
+  "aod": {
+    "elements": [
+      {"type": "text", "bind": "time.hh:mm", "x": 205, "y": 231, "font": "digits_96_light", "color": "#0088A0"},
+      {"type": "text", "bind": "date.EEE d MMM", "x": 205, "y": 312, "font": "caption_22",
+       "color": "#6A6A70", "upper": true}
+    ]
+  }
+}

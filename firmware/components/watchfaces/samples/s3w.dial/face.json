@@ -1,0 +1,32 @@
+{
+  "id": "s3w.dial",
+  "name": "Dial",
+  "version": "1.0.0",
+  "api": 1,
+  "author": "S3Wear",
+  "description": "Sample declarative face: vector analog dial, battery arc, date window.",
+  "background": "#000000",
+  "elements": [
+    {"type": "ticks", "r": 196, "count": 60, "len": 8, "w": 2, "color": "#6A6A70",
+     "major": 5, "major_len": 20, "major_w": 6, "major_color": "#FFFFFF"},
+    {"type": "arc", "bind": "battery.ratio", "r": 160, "w": 6, "start": 200, "end": 340,
+     "color": "accent", "track": "#2C2C2E"},
+    {"type": "text", "text": "12", "x": 205, "y": 132, "font": "title_32"},
+    {"type": "complication", "slot": "center", "x": 205, "y": 352, "style": "circle", "default": "steps"},
+    {"type": "rect", "x": 320, "y": 251, "w": 64, "h": 40, "radius": 8, "color": "#1C1C1E"},
+    {"type": "text", "bind": "date.d", "x": 320, "y": 251, "font": "body_26", "color": "#FFD60A"},
+    {"type": "hand", "bind": "time.hour", "len": 100, "w": 12, "color": "#FFFFFF"},
+    {"type": "hand", "bind": "time.minute", "len": 160, "w": 8, "color": "#FFFFFF"},
+    {"type": "hand", "bind": "time.second", "len": 176, "tail": 32, "w": 3, "color": "#FF453A"},
+    {"type": "circle", "x": 205, "y": 251, "r": 10, "color": "#FFFFFF"},
+    {"type": "circle", "x": 205, "y": 251, "r": 4, "color": "#FF453A"}
+  ],
+  "aod": {
+    "elements": [
+      {"type": "ticks", "r": 196, "count": 12, "len": 10, "w": 4, "color": "#6A6A70"},
+      {"type": "hand", "bind": "time.hour", "len": 100, "w": 6, "color": "#9A9AA0"},
+      {"type": "hand", "bind": "time.minute", "len": 160, "w": 4, "color": "#9A9AA0"},
+      {"type": "circle", "x": 205, "y": 251, "r": 6, "color": "#9A9AA0"}
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": 8,
+  "replyTo": 2,
+  "status": {
+    "code": 3,
+    "message": "busy: transfer in progress"
+  },
+  "ack": {}
+}

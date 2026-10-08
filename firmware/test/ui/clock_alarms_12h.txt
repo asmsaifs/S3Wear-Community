@@ -1,0 +1,5 @@
+# 12 h clock: alarm times with AM/PM; a third alarm with a label.
+clock 12
+alarm 18:45 weekdays Gym
+push alarms
+wait 400

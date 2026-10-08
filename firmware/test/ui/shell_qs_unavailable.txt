@@ -1,0 +1,5 @@
+# A feature that does not exist yet (Wi-Fi, P9) stays off and says so.
+swipe 205 120 205 400
+wait 400
+tap 64 202     # Wi-Fi
+wait 300

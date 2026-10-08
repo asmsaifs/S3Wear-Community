@@ -1,0 +1,8 @@
+# Modes in quick settings (P3-08): DND on by its schedule (09:00-11:00 covers the
+# pinned 10:09), sleep mode on by hand, theater mode tapped on; the toast names it.
+sched dnd 09:00 11:00
+mode sleep on
+swipe 205 120 205 400
+wait 400
+tap 158 110    # Theater mode
+wait 300

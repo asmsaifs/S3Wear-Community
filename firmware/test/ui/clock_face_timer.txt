@@ -1,0 +1,5 @@
+# A running timer feeds the timer complication (minutes left).
+face modular
+slot modular 0 timer
+timer 600
+wait 300

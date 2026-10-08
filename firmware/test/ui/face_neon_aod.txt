@@ -1,0 +1,5 @@
+# s3w.neon AOD variant (face.json "aod"); under 10 % of the pixels lit (docs/03 F1).
+face s3w.neon
+aod on
+wait 100
+lit 10

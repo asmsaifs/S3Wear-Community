@@ -1,0 +1,5 @@
+# Snooze: the ring screen closes and a toast says for how long.
+ring alarm
+wait 400
+tap 205 337   # Snooze 10 min
+wait 500

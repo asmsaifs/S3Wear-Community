@@ -1,0 +1,16 @@
+# S3Wear — release overrides, applied on top of sdkconfig.defaults:
+#   idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.release" build
+# Security (secure boot, flash encryption) is NOT here: see docs/02 §10 and P10-06.
+
+# --- Logging: INFO by default, DEBUG/VERBOSE compiled out (CLAUDE.md) ---
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
+
+# --- Debug aids off ---
+CONFIG_S3W_LVGL_THREAD_CHECK=n
+CONFIG_LV_BUILD_DEMOS=n
+CONFIG_LV_USE_DEMO_WIDGETS=n
+CONFIG_PM_PROFILING=n
+
+# --- Optimise for speed; keep assertions (crash early and visibly) ---
+CONFIG_COMPILER_OPTIMIZATION_PERF=y

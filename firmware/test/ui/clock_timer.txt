@@ -1,0 +1,3 @@
+# Timer with none running: presets and Custom.
+push timer
+wait 400

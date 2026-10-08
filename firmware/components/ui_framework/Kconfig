@@ -1,0 +1,36 @@
+menu "S3Wear UI (ui_framework)"
+
+    choice S3W_LVGL_RENDER_MODE
+        prompt "LVGL render mode"
+        default S3W_LVGL_RENDER_PARTIAL
+        help
+            How LVGL renders into memory before the QSPI transfer (P2-04, docs/02 §6).
+
+        config S3W_LVGL_RENDER_PARTIAL
+            bool "Partial: two internal DMA buffers of S3W_LVGL_BUF_LINES lines"
+            help
+                LVGL renders each dirty area in bands into fast internal RAM; one band is
+                sent by DMA while the next is rendered.
+
+        config S3W_LVGL_RENDER_DIRECT
+            bool "Direct: full frame buffer in PSRAM (measured slower)"
+            help
+                LVGL renders dirty areas in place into one 410x502 RGB565 frame buffer in
+                PSRAM (411 KB). The flush copies (and byte-swaps) dirty rows into two
+                internal DMA bounce buffers of S3W_LVGL_BUF_LINES lines.
+                Kept for re-measuring with `lcd bench`: in P2-04 it reached 19.9 fps vs
+                29.9 fps for partial, because the copy-out cannot overlap rendering.
+    endchoice
+
+    config S3W_LVGL_BUF_LINES
+        int "Lines per internal DMA buffer"
+        range 8 128
+        default 40
+        help
+            Two buffers of 410 x lines x 2 B each live in internal DMA RAM (40 lines =
+            2 x 32 KB). 32..48 lines measured the same fps (P2-04); 40 keeps the
+            internal heap minimum above budget with the 32 KB instruction cache.
+            Partial mode renders into them; direct mode uses them as bounce buffers.
+            Free internal heap must stay > 40 KB (docs/02 §6).
+
+endmenu

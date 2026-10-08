@@ -1,0 +1,3 @@
+# World clock: each city's time, day and offset from home (UTC in the simulator).
+push world_clock
+wait 400

@@ -1,0 +1,3 @@
+# s3w.dial sample declarative face (components/watchfaces/samples) with the demo data.
+face s3w.dial
+wait 100

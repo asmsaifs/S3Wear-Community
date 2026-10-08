@@ -1,0 +1,6 @@
+# Stop removes the finished timer: the timer screen shows only the presets.
+timer 2
+push timer
+wait 2600
+tap 205 347   # Stop
+wait 500

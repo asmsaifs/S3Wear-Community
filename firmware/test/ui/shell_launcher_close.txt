@@ -1,0 +1,5 @@
+# Swipe left closes the launcher. Golden equals home.png.
+swipe 60 250 350 250
+wait 400
+swipe 350 250 60 250
+wait 400

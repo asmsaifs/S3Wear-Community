@@ -1,0 +1,121 @@
+# Firmware: ESP-IDF target build + size report, host unit tests, simulator UI snapshot tests.
+# docs/08-quality-ci-release.md §3.
+name: firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "protocol/**"
+      - ".github/workflows/firmware.yml"
+  pull_request:
+    paths:
+      - "firmware/**"
+      - "protocol/**"
+      - ".github/workflows/firmware.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ESP-IDF build (esp32s3)
+    runs-on: ubuntu-24.04
+    # Same ESP-IDF version as dependencies.lock; bump both together.
+    container: espressif/idf:v5.5.1
+    defaults:
+      run:
+        shell: bash
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build (debug)
+        run: |
+          # Checkout is owned by another uid inside the container; IDF runs git describe.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+
+      - name: Size report
+        run: |
+          . "$IDF_PATH/export.sh"
+          {
+            echo '### Firmware size (debug)'
+            echo '```'
+            idf.py size
+            idf.py size-components
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build (release profile)
+        run: |
+          if [ ! -f sdkconfig.defaults.release ]; then
+            echo "::notice::firmware/sdkconfig.defaults.release does not exist yet; release build skipped"
+            exit 0
+          fi
+          . "$IDF_PATH/export.sh"
+          idf.py -B build-release -D SDKCONFIG=build-release/sdkconfig \
+            -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.release" build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware-debug-${{ github.sha }}
+          path: |
+            firmware/build/*.bin
+            firmware/build/*.elf
+            firmware/build/*.map
+            firmware/build/flash_args
+            firmware/build/bootloader/bootloader.bin
+            firmware/build/partition_table/partition-table.bin
+          if-no-files-found: error
+
+  host-tests:
+    name: Host unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        run: cmake -S firmware/host_test -B build/host_test
+
+      - name: Build
+        run: cmake --build build/host_test --parallel
+
+      - name: Test
+        run: ctest --test-dir build/host_test --output-on-failure
+
+  simulator:
+    name: Simulator (UI snapshot tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install SDL2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libsdl2-dev
+
+      - name: Build
+        run: |
+          cmake -S firmware/simulator -B build/sim
+          cmake --build build/sim --parallel
+
+      # firmware/test/ui/<name>.txt must render exactly firmware/test/ui_snapshots/<name>.png.
+      - name: Snapshot tests
+        run: ctest --test-dir build/sim --output-on-failure
+
+      # Rendered PNGs (pass or fail) for review; on a failure compare with the goldens.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: simulator-snapshots-${{ github.sha }}
+          path: build/sim/ui_snapshots/
+          if-no-files-found: error

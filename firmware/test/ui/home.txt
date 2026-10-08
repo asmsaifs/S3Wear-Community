@@ -1,0 +1,1 @@
+# Home screen after boot: the default face (Digital Bold), clock pinned to 10:09 UTC.

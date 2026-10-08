@@ -1,0 +1,62 @@
+# --- OS / editors ---
+.DS_Store
+._*
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.cache/
+.clangd/
+compile_commands.json
+
+# --- Host / simulator / generic CMake builds ---
+/build/
+cmake-build-*/
+*.png.tmp
+
+# --- ESP-IDF firmware ---
+firmware/build/
+firmware/build-*/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dependencies.lock.bak
+firmware/**/__pycache__/
+*.elf
+*.map
+*.bin
+!protocol/testvectors/**/*.bin
+
+# --- Mini app SDK / apps ---
+apps/*/build/
+sdk/templates/*/build/
+*.wasm
+*.s3wapp
+
+# --- Android ---
+android/**/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+android/.kotlin/
+android/captures/
+android/**/*.iml
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# --- Python tooling ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Secrets (signing keys never go in the repo) ---
+*.pem
+*.key
+secrets/
+.env

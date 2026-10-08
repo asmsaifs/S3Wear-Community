@@ -1,0 +1,3 @@
+# modular face with the simulator's demo data.
+face modular
+wait 100

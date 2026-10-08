@@ -1,0 +1,4 @@
+# Alarms with none set: empty state and the Add button.
+alarm clear
+push alarms
+wait 400

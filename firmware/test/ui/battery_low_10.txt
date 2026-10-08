@@ -1,0 +1,3 @@
+# 10 % offers battery saver (docs/03 F5).
+low 10
+wait 400

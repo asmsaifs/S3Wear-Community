@@ -1,0 +1,11 @@
+menu "S3Wear board (bsp_s3w)"
+
+    config S3W_LCD_PCLK_MHZ
+        int "AMOLED QSPI clock (MHz)"
+        range 10 80
+        default 40
+        help
+            CO5300 QSPI clock. 40 MHz is the vendor default (~21 ms per full frame).
+            80 MHz halves transfer time; keep 40 if artifacts appear (docs/01-hardware.md §5).
+
+endmenu

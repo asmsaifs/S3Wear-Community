@@ -1,0 +1,5 @@
+# Battery app scrolled down: graph axis, saver toggle, watch only, voltage.
+push battery
+wait 400
+swipe 205 440 205 100 300
+wait 600

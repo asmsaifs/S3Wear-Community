@@ -1,0 +1,3 @@
+# Widget gallery page "gallery.empty".
+push gallery.empty
+wait 400

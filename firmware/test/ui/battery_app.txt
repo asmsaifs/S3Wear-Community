@@ -1,0 +1,5 @@
+# Battery app (P3-09): ring with the level, state and time left from the demo
+# history (charged 06:00-08:00, now 80 % and draining), 24 h graph (charging hours
+# in the accent colour).
+push battery
+wait 400

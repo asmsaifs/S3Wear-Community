@@ -1,0 +1,7 @@
+# Tapping a toggle row flips its switch: scroll down, tap "Always on" -> on.
+push gallery.lists
+wait 400
+swipe 200 450 200 250 300
+wait 600
+tap 200 265
+wait 300

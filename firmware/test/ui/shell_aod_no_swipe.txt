@@ -1,0 +1,5 @@
+# No panels in AOD: the swipe changes nothing. Golden equals face_digital_aod.png.
+aod on
+swipe 205 120 205 400
+wait 400
+lit 10

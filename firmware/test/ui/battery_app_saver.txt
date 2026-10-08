@@ -1,0 +1,9 @@
+# Battery app: the saver toggle turns saver on (state line follows), as quick settings does.
+push battery
+wait 400
+swipe 205 440 205 100 300
+wait 600
+tap 205 254    # Battery saver row
+wait 300
+swipe 205 100 205 440 300
+wait 600

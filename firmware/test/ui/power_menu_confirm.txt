@@ -1,0 +1,5 @@
+# Power off asks for confirmation first (no args: confirming would only toast).
+push power
+wait 500
+tap 205 150
+wait 300

@@ -1,0 +1,11 @@
+# Untick Saturday and Sunday, save: the list shows Mon-Fri.
+push alarms
+wait 400
+tap 150 200   # 07:00 row
+wait 400
+tap 355 324   # Sunday
+tap 305 324   # Saturday
+swipe 200 420 200 120 300
+wait 800
+tap 205 278   # Save
+wait 500

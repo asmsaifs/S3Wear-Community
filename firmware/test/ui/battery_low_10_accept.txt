@@ -1,0 +1,7 @@
+# 10 %: "Turn on" switches battery saver on; quick settings shows it on.
+low 10
+wait 400
+tap 205 362    # Turn on
+wait 2500      # "Battery saver on" toast gone
+swipe 205 120 205 400
+wait 500

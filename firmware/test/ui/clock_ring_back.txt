@@ -1,0 +1,5 @@
+# BACK does not stop the alarm (golden equals clock_ring_alarm.png).
+ring alarm
+wait 400
+key back
+wait 400

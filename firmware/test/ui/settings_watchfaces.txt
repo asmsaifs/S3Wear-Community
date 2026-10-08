@@ -1,0 +1,5 @@
+# Watch faces opens the face picker.
+push settings
+wait 400
+tap 205 432
+wait 500

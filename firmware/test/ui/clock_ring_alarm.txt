@@ -1,0 +1,3 @@
+# An alarm rings: time, Snooze, and the slider that stops it.
+ring alarm
+wait 400

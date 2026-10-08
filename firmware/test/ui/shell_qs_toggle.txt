@@ -1,0 +1,6 @@
+# Quick settings: DND and AOD on (accent fill), toast names the last change.
+swipe 205 120 205 400
+wait 400
+tap 64 110     # Do not disturb
+tap 346 110    # Always-on display
+wait 300

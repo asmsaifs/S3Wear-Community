@@ -1,0 +1,5 @@
+# The switch turns the 08:30 alarm on without opening the editor.
+push alarms
+wait 400
+tap 330 303   # 08:30 switch
+wait 300

@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "hello": {
+    "protoMajor": 1,
+    "protoMinor": 0,
+    "appVersion": "0.1.0",
+    "caps": ["notif.actions", "ota.ble"],
+    "phoneModel": "Pixel 9",
+    "locale": "en-US",
+    "tzName": "Asia/Dhaka"
+  }
+}

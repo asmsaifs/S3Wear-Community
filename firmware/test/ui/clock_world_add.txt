@@ -1,0 +1,5 @@
+# Add city: the cities not shown yet.
+push world_clock
+wait 400
+tap 205 467   # Add city
+wait 400

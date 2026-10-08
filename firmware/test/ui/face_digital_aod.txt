@@ -1,0 +1,5 @@
+# digital AOD variant: dim, no seconds, no complications; under 10 % of the pixels lit (docs/03 F1).
+face digital
+aod on
+wait 100
+lit 10

@@ -1,0 +1,8 @@
+# A slider row commits when released; Brightness at the left edge is the 5 % minimum.
+push settings
+wait 400
+tap 205 145
+wait 400
+tap 49 189
+wait 300
+setting-is disp_bright 5

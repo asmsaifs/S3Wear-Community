@@ -1,0 +1,6 @@
+# A saved FACE_CONFIG string (as loaded at boot): Analog Classic with a teal second
+# hand and the moon in the right subdial; saving gives the same string back.
+config analog:right=moon,color=40c8e0
+face analog
+config-is analog:right=moon,color=40c8e0
+wait 100
