@@ -186,6 +186,18 @@ if(NOT WIN32)
 endif()
 s3w_host_test(test_flip_detect SOURCES test_flip_detect.cpp LIBS s3w_flip_detect)
 
+# svc_activity step detector (on the logs in firmware/test/activity) and day totals.
+add_library(s3w_activity_logic STATIC
+    ${S3W_FW_DIR}/components/svc_activity/step_detect.c
+    ${S3W_FW_DIR}/components/svc_activity/activity_day.c)
+target_include_directories(s3w_activity_logic PUBLIC ${S3W_FW_DIR}/components/svc_activity/include)
+if(NOT WIN32)
+    target_link_libraries(s3w_activity_logic PUBLIC m)
+endif()
+s3w_host_test(test_step_detect SOURCES test_step_detect.cpp LIBS s3w_activity_logic)
+target_compile_definitions(test_step_detect PRIVATE S3W_ACTIVITY_LOGS_DIR="${S3W_FW_DIR}/test/activity")
+s3w_host_test(test_activity_day SOURCES test_activity_day.cpp LIBS s3w_activity_logic)
+
 # svc_alarm scheduler (alarms, snooze, DST, NVS blob) and countdown timers.
 add_library(s3w_alarm_logic STATIC
     ${S3W_FW_DIR}/components/svc_alarm/alarm_sched.c
@@ -213,3 +225,18 @@ s3w_host_test(test_settings_tree SOURCES test_settings_tree.cpp LIBS s3w_setting
 add_library(s3w_modes_logic STATIC ${S3W_FW_DIR}/components/svc_modes/modes.c)
 target_include_directories(s3w_modes_logic PUBLIC ${S3W_FW_DIR}/components/svc_modes/include)
 s3w_host_test(test_modes SOURCES test_modes.cpp LIBS s3w_modes_logic)
+
+# svc_link: framing, request/reply retries, windowed bulk engine (P4-02).
+add_library(s3w_link_logic STATIC
+    ${S3W_FW_DIR}/components/svc_link/link_frame.c
+    ${S3W_FW_DIR}/components/svc_link/link_rpc.c
+    ${S3W_FW_DIR}/components/svc_link/link_bulk.c)
+target_include_directories(s3w_link_logic PUBLIC ${S3W_FW_DIR}/components/svc_link/include)
+s3w_host_test(test_link SOURCES test_link.cpp LIBS s3w_link_logic)
+target_compile_definitions(test_link PRIVATE S3W_TESTVECTORS_DIR="${S3W_REPO_DIR}/protocol/testvectors")
+
+# Pro-only tests (docs/10 §3): notifications, media, weather, Wi-Fi, calendar, calls, Home
+# Assistant, voice memos, screenshots, licence, and the installable mini-app runtime. The file is not in the Community export.
+if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/pro_tests.cmake)
+    include(${CMAKE_CURRENT_LIST_DIR}/pro_tests.cmake)
+endif()

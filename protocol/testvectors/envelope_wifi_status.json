@@ -1,0 +1,12 @@
+{
+  "replyTo": 21,
+  "status": {},
+  "wifiStatus": {
+    "on": true,
+    "state": 3,
+    "ssid": "Home 5G",
+    "rssi": -58,
+    "ip": "192.168.1.42",
+    "saved": ["Home 5G", "Office"]
+  }
+}

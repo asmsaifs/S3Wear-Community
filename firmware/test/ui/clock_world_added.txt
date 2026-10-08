@@ -1,9 +1,0 @@
-# Picking a city adds it at the end of the list.
-push world_clock
-wait 400
-tap 205 467   # Add city
-wait 400
-tap 205 140   # Honolulu
-wait 500
-swipe 200 420 200 120 300
-wait 800

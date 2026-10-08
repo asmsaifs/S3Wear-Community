@@ -26,16 +26,23 @@ extern "C" {
 #define S3W_PRIO_EVENTS  11
 #define S3W_PRIO_LINK    10
 #define S3W_PRIO_UI      8
+#define S3W_PRIO_MEMO    6 // svc_memo files (the mic task runs at S3W_PRIO_VOICE)
 #define S3W_PRIO_APP     7
 #define S3W_PRIO_WORKER  5
+#define S3W_PRIO_HA      5 // svc_ha: waits on the network
 
 // Stacks in bytes
-#define S3W_STACK_UI     (12 * 1024)
+#define S3W_STACK_UI     (8 * 1024) // P8-01: 4.8 KB used after every face + lcd bench (P10-08: 10 -> 8 KB, 5.4 KB used with an app open)
 #define S3W_STACK_EVENTS (4 * 1024)
 #define S3W_STACK_WORKER (6 * 1024)
 #define S3W_STACK_POWER  (4 * 1024)
-#define S3W_STACK_SENSORS (3 * 1024) // PSRAM (svc_sensors: no flash writes)
+#define S3W_STACK_SENSORS (4 * 1024) // PSRAM (svc_sensors: no flash writes; runs svc_activity's batches)
 #define S3W_STACK_ALARM  (4 * 1024) // internal (NVS writes)
+#define S3W_STACK_LINK   (6 * 1024) // internal (transfer sinks write flash)
+#define S3W_STACK_APP    (16 * 1024) // PSRAM (app_rt: WAMR interpreter, no flash writes)
+#define S3W_STACK_HA     (10 * 1024) // PSRAM (svc_ha: HTTP + TLS handshake, no flash writes)
+#define S3W_STACK_MEMO   (4 * 1024) // internal (svc_memo: memo files)
+#define S3W_STACK_MEMO_MIC (3 * 1024) // internal (memo_mic: 1.3 KB of mic samples on the stack)
 
 typedef struct {
     const char *name;

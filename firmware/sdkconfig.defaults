@@ -82,8 +82,14 @@ CONFIG_LV_FONT_MONTSERRAT_24=y
 CONFIG_LV_FONT_MONTSERRAT_48=y
 # s3w_qr (ui_framework widgets); UI fonts are Inter, see tools/fonts/gen_fonts.sh
 CONFIG_LV_USE_QRCODE=y
+# TJpgDec: svc_media decodes the phone's album art (media_art.c, P6-01)
+CONFIG_LV_USE_TJPGD=y
+# PNG pictures from the device's files (s3w_ui_image_file, app_image.c, P8-18; JPEG uses TJpgDec above)
+CONFIG_LV_USE_LODEPNG=y
 # Bring-up demo (console `lcd demo`); removed from release builds later.
 CONFIG_LV_USE_DEMO_WIDGETS=y
+# LVGL software draw thread (internal RAM): 1.8 KB used after every face + `lcd bench` (P8-01).
+CONFIG_LV_DRAW_THREAD_STACK_SIZE=5120
 
 # --- FreeRTOS timer task runs button debounce and deferred RTC/PMU IRQ handling (I2C + log) ---
 CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
@@ -96,6 +102,29 @@ CONFIG_FATFS_MAX_LFN=255
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+# svc_ble (P4-01, docs/06 §1/§8): bonds in NVS; LE Secure Connections
+# only (numeric comparison); MTU 517; standard Battery (notify) and Device Information.
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+CONFIG_BT_NIMBLE_SM_LEGACY=n
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=517
+CONFIG_BT_NIMBLE_SVC_BAS_BATTERY_LEVEL_NOTIFY=y
+CONFIG_BT_NIMBLE_SVC_DIS_MANUFACTURER_NAME=y
+CONFIG_BT_NIMBLE_SVC_DIS_SERIAL_NUMBER=y
+CONFIG_BT_NIMBLE_SVC_DIS_HARDWARE_REVISION=y
+CONFIG_BT_NIMBLE_SVC_DIS_FIRMWARE_REVISION=y
+# Peripheral only, at most 2 links (svc_ble MAX_LINKS: companion + one more): controller
+# instances = 2 links + advertising. Saves internal RAM (docs/02 §6 RAM budget).
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=2
+CONFIG_BT_CTRL_BLE_MAX_ACT=3
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+# Controller sleeps between BLE events so the chip can light-sleep with a link up.
+# No 32 kHz crystal on this board: the main XTAL is the low-power clock and stays
+# powered in light sleep (docs/02 §7 power note).
+CONFIG_BT_CTRL_MODEM_SLEEP=y
+CONFIG_BT_CTRL_MODEM_SLEEP_MODE_1=y
+CONFIG_BT_CTRL_LPCLK_SEL_MAIN_XTAL=y
+CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP=y
 
 # --- Wi-Fi / LwIP buffers may live in PSRAM (Wi-Fi is off by default) ---
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
@@ -103,6 +132,21 @@ CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
 # (Wi-Fi is only on for OTA/store/HA; its buffers are in PSRAM, see above).
 CONFIG_ESP_WIFI_IRAM_OPT=n
 CONFIG_ESP_WIFI_RX_IRAM_OPT=n
+# Wi-Fi buffers (P9-01): with PSRAM, IDF's defaults (16 static RX, 16 static TX, 32 dynamic RX,
+# RX BA window 16) made esp_wifi_init() fail with ~27 KB internal RAM free (each buffer also has an
+# internal descriptor). Fewer buffers: a watch moves small files, not throughput. Static TX buffers
+# are forced by SPIRAM_TRY_ALLOCATE_WIFI_LWIP (they come from PSRAM). Station only.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=8
+CONFIG_ESP_WIFI_CACHE_TX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_RX_BA_WIN=6
+CONFIG_ESP_WIFI_MGMT_SBUF_NUM=16
+CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n
+CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT=n
+# SNTP while Wi-Fi is joined (svc_wifi, P9-01): every 6 h, like the phone's TimeSync. The RTC
+# drifts < 1 s a day once calibrated, so more often only costs radio time.
+CONFIG_LWIP_SNTP_UPDATE_DELAY=21600000
 
 # --- FreeRTOS: notification index 1 wakes the UI task (index 0 is LVGL's thread sync) ---
 CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES=2

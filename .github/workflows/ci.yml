@@ -1,0 +1,101 @@
+# Community edition CI: ESP-IDF build with sdkconfig.defaults.community, and the simulator's
+# UI snapshot tests. This file is not in the private repo's workflows; it ships from
+# tools/community/public/ (docs/10 §5).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: ESP-IDF build (esp32s3, Community)
+    runs-on: ubuntu-24.04
+    # Same ESP-IDF version as firmware/dependencies.lock; bump both together.
+    container: espressif/idf:v5.5.1
+    defaults:
+      run:
+        shell: bash
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: |
+          # Checkout is owned by another uid inside the container; IDF runs git describe.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py -B build-community -D SDKCONFIG=build-community/sdkconfig \
+            -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.community" build
+
+      - name: Size report
+        run: |
+          . "$IDF_PATH/export.sh"
+          {
+            echo '### Firmware size (Community)'
+            echo '```'
+            idf.py -B build-community size
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware-community-${{ github.sha }}
+          path: |
+            firmware/build-community/*.bin
+            firmware/build-community/flash_args
+            firmware/build-community/bootloader/bootloader.bin
+            firmware/build-community/partition_table/partition-table.bin
+          if-no-files-found: error
+
+  simulator:
+    name: Simulator (UI snapshot tests, Community)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install SDL2 and zlib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libsdl2-dev zlib1g-dev
+
+      # firmware/test/ui/community/<name>.txt must render exactly
+      # firmware/test/ui_snapshots/community/<name>.png.
+      - name: Build
+        run: |
+          cmake -S firmware/simulator -B build/sim-community -DS3W_EDITION_PRO=OFF
+          cmake --build build/sim-community --parallel
+
+      - name: Snapshot tests
+        run: ctest --test-dir build/sim-community --output-on-failure
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: simulator-snapshots-${{ github.sha }}
+          path: build/sim-community/ui_snapshots/
+
+  host-tests:
+    name: Host unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        run: cmake -S firmware/host_test -B build/host_test
+
+      - name: Build
+        run: cmake --build build/host_test --parallel
+
+      - name: Test
+        run: ctest --test-dir build/host_test --output-on-failure

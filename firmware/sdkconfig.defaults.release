@@ -14,3 +14,6 @@ CONFIG_PM_PROFILING=n
 
 # --- Optimise for speed; keep assertions (crash early and visibly) ---
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# --- Licence: no development unlock (docs/10 §4, P12-02) ---
+CONFIG_S3W_LICENSE_DEV_UNLOCK=n

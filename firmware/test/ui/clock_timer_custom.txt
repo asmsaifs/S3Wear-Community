@@ -1,3 +1,0 @@
-# Custom timer: hour, minute and second pickers.
-push timer.custom
-wait 400

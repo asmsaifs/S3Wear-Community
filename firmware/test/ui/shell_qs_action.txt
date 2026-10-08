@@ -1,5 +1,0 @@
-# Settings button: opens the Settings app.
-swipe 205 120 205 400
-wait 400
-tap 299 294    # Settings
-wait 300

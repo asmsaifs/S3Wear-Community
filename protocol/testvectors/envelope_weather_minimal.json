@@ -1,0 +1,9 @@
+{
+  "weather": {
+    "fetchedMs": "1791021600000",
+    "current": {
+      "tempDc": -35,
+      "condition": 3
+    }
+  }
+}

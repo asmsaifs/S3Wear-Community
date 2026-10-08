@@ -1,7 +1,9 @@
 // Launcher (docs/04 §3): swipe right on the face or BOOT on the home screen. A list
 // with sections (Recent, System apps, Mini apps, Games) or a honeycomb grid of round
 // icons; the button at the end switches between them (saved by the listener). A
-// swipe left, BACK or PWR closes it.
+// swipe left, BACK or PWR closes it. A long press on a mini app asks to uninstall it.
+#include <string.h>
+
 #include "shell_priv.h"
 #include "ui_theme.h"
 #include "ui_widgets.h"
@@ -33,6 +35,13 @@ void shell_launcher_set_grid(bool grid)
     }
 }
 
+void shell_launcher_refresh(void)
+{
+    if (s_screen) {
+        build(ui_screen_state(s_screen), ui_screen_root(s_screen));
+    }
+}
+
 bool shell_launcher_grid(void)
 {
     return s_grid;
@@ -47,6 +56,38 @@ void shell_launcher_set_listener(void (*cb)(bool grid, void *ctx), void *ctx)
 static void app_clicked(lv_event_t *e)
 {
     shell_app_open(lv_event_get_user_data(e));
+}
+
+static void remove_answer(bool confirmed, void *ctx)
+{
+    // ctx is the app's id copy: the app may have gone meanwhile (an update, the phone).
+    char *id = ctx;
+    const shell_app_t *app = shell_app_find(id);
+    if (confirmed && app && app->remove) {
+        app->remove(app);
+    }
+    lv_free(id);
+}
+
+static void app_long_pressed(lv_event_t *e)
+{
+    const shell_app_t *app = lv_event_get_user_data(e);
+    if (!app->remove || !s_screen) {
+        return;
+    }
+    lv_indev_t *indev = lv_indev_active();
+    if (indev) {
+        lv_indev_wait_release(indev); // no click when the finger lifts
+    }
+    char title[48];
+    lv_snprintf(title, sizeof title, "Uninstall %s?", app->name);
+    const size_t len = strlen(app->id) + 1;
+    char *id = lv_malloc(len);
+    if (id) {
+        memcpy(id, app->id, len);
+        s3w_dialog_show(ui_screen_root(s_screen), title, "The app and its data are deleted.", "Uninstall", true,
+                        remove_answer, id);
+    }
 }
 
 static void layout_clicked(lv_event_t *e)
@@ -64,6 +105,9 @@ static void add_row(lv_obj_t *list, const shell_app_t *app)
     lv_obj_t *icon = shell_app_icon_create(row, app, ROW_ICON_D);
     lv_obj_move_to_index(icon, 0);
     lv_obj_add_event_cb(row, app_clicked, LV_EVENT_CLICKED, (void *)app);
+    if (app->remove) {
+        lv_obj_add_event_cb(row, app_long_pressed, LV_EVENT_LONG_PRESSED, (void *)app);
+    }
 }
 
 /** Apps of one kind as rows under a section title; false if there are none. */
@@ -92,6 +136,7 @@ static void build_list(lv_obj_t *list)
         }
     }
     add_section(list, "System apps", SHELL_APP_SYSTEM);
+#if S3W_EDITION_PRO // installable mini apps and games: Pro only (docs/10 §3)
     if (!add_section(list, "Mini apps", SHELL_APP_MINI)) {
         s3w_list_add_section(list, "Mini apps");
         lv_obj_t *hint = shell_label(list, "Install mini apps from the phone app.", UI_FONT_CAPTION, UI_COLOR_TEXT_DIM);
@@ -99,6 +144,7 @@ static void build_list(lv_obj_t *list)
         lv_obj_set_style_pad_hor(hint, UI_SPACE_L, 0);
     }
     add_section(list, "Games", SHELL_APP_GAME);
+#endif
 }
 
 /** Rows of 3 and 2 icons, interlocked. Every app, registry order. */
@@ -125,10 +171,12 @@ static void build_grid(lv_obj_t *list)
             const shell_app_t *app = shell_app_at(i);
             lv_obj_t *icon = shell_app_icon_create(hive, app, HEX_D);
             lv_obj_add_flag(icon, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_set_style_bg_opa(icon, LV_OPA_70, LV_STATE_PRESSED);
             const int32_t x = cx + (2 * c - (cols - 1)) * HEX_PITCH_X / 2;
             lv_obj_set_pos(icon, x - HEX_D / 2, (int32_t)r * HEX_PITCH_Y);
             lv_obj_add_event_cb(icon, app_clicked, LV_EVENT_CLICKED, (void *)app);
+            if (app->remove) {
+                lv_obj_add_event_cb(icon, app_long_pressed, LV_EVENT_LONG_PRESSED, (void *)app);
+            }
         }
     }
 }

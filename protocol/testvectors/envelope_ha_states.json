@@ -1,0 +1,10 @@
+{
+  "replyTo": 7,
+  "status": {},
+  "haStates": {
+    "states": [
+      {"entityId": "light.kitchen", "state": "on"},
+      {"entityId": "sensor.living_temp", "state": "21.5", "unit": "°C"}
+    ]
+  }
+}

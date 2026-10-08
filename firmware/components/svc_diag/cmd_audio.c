@@ -1,5 +1,6 @@
 // Console: `audio tone|rec|play|loop|vol` — ES8311/ES7210 bring-up (P1-07);
-// `audio snd|ring|stop|status` — system sounds through svc_audio (P3-11).
+// `audio snd|ring|stop|status` — system sounds through svc_audio (P3-11); `audio pcm` — a tone
+// through svc_audio's PCM stream (P7-01).
 // Everything runs at 16 kHz, 16-bit, 2 channels (output: both channels equal,
 // input: MIC1/MIC2 interleaved).
 #include <stdio.h>
@@ -11,6 +12,8 @@
 #include "drv_audio.h"
 #include "esp_console.h"
 #include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "svc_audio.h"
 #include "svc_diag_priv.h"
 
@@ -147,6 +150,37 @@ static int audio_status(void)
     return 0;
 }
 
+// A sine through svc_audio's PCM stream (the path mini apps and voice memos use), fed in 20 ms
+// blocks as the 1 s buffer drains, like svc_memo does.
+static int audio_pcm(uint32_t hz, uint32_t ms)
+{
+    if (svc_audio_stream_open(100) != ESP_OK) {
+        printf("stream busy\n");
+        return 1;
+    }
+    int16_t buf[CHUNK_FRAMES];
+    uint32_t phase = 0;
+    const size_t total = (size_t)RATE * ms / 1000;
+    size_t sent = 0;
+    while (sent < total) {
+        audio_dsp_tone(buf, CHUNK_FRAMES, 1, RATE, hz, TONE_AMPL, &phase);
+        size_t done = 0;
+        while (done < CHUNK_FRAMES) {
+            done += svc_audio_stream_write(buf + done, CHUNK_FRAMES - done);
+            if (done < CHUNK_FRAMES) {
+                vTaskDelay(pdMS_TO_TICKS(20)); // the buffer is full: let it drain
+            }
+        }
+        sent += CHUNK_FRAMES;
+    }
+    while (svc_audio_stream_queued() > 0) {
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    svc_audio_stream_close();
+    printf("pcm %lu Hz %lu ms: done\n", (unsigned long)hz, (unsigned long)ms);
+    return 0;
+}
+
 static int cmd_audio(int argc, char **argv)
 {
     if (!bsp_audio_ready()) {
@@ -156,6 +190,9 @@ static int cmd_audio(int argc, char **argv)
     const char *sub = argc >= 2 ? argv[1] : "";
     if (strcmp(sub, "tone") == 0 && argc >= 4) {
         return audio_tone((uint32_t)atoi(argv[2]), (uint32_t)atoi(argv[3]), argc >= 5 ? atoi(argv[4]) : -1);
+    }
+    if (strcmp(sub, "pcm") == 0 && argc >= 4) {
+        return audio_pcm((uint32_t)atoi(argv[2]), (uint32_t)atoi(argv[3]));
     }
     if (strcmp(sub, "rec") == 0 && argc >= 3) {
         return audio_rec(atoi(argv[2]));
@@ -181,7 +218,7 @@ static int cmd_audio(int argc, char **argv)
     if (strcmp(sub, "status") == 0) {
         return audio_status();
     }
-    printf("usage: audio tone <hz> <ms> [vol] | rec <s> | play | loop [hz] | vol <0..100> | snd <name> | ring <alarm|timer> "
+    printf("usage: audio tone <hz> <ms> [vol] | pcm <hz> <ms> | rec <s> | play | loop [hz] | vol <0..100> | snd <name> | ring <alarm|timer> "
            "| stop | status\n");
     return 1;
 }

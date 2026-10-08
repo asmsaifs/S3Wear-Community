@@ -24,6 +24,15 @@ extern "C" {
  *  before ui_start(). */
 void shell_init(void);
 
+/** Pro licence (docs/10 §4, Pro edition only): locked, every Pro screen (launcher, tiles, home
+ *  swipe, settings, complications, alerts) opens the unlock prompt ("pro.locked") instead.
+ *  Default unlocked; app_main follows svc_license, the simulator its `pro_locked` command. */
+void shell_set_pro_locked(bool locked);
+bool shell_pro_locked(void);
+
+/** True if id is a Pro screen or app (or one of its sub-screens, "<id>.*"). */
+bool shell_is_pro_screen(const char *id);
+
 // --- Quick settings (id "qs") -----------------------------------------------------------
 
 /** Quick settings buttons, in grid order (docs/03 F4). */
@@ -78,20 +87,31 @@ typedef enum {
     SHELL_APP_GAME,
 } shell_app_kind_t;
 
-typedef struct {
+typedef struct shell_app shell_app_t;
+struct shell_app {
     const char *id;   // screen id opened with ui_nav_push_id() (same ids as complications)
     const char *name;
-    const char *icon; // LV_SYMBOL_*
+    const char *icon; // LV_SYMBOL_* (or any text in the theme font)
     uint32_t color;   // 0xRRGGBB icon background
     shell_app_kind_t kind;
-} shell_app_t;
+    /** Opens the app instead of pushing the screen id (mini apps, mini_apps.h). NULL = push. */
+    void (*open)(const shell_app_t *app);
+    /** Long press in the launcher asks to uninstall, then calls this. NULL = cannot be removed. */
+    void (*remove)(const shell_app_t *app);
+    /** A picture shown instead of icon and color (round, any size: it is scaled), e.g. a mini
+     *  app's icon.png. NULL = the symbol. */
+    const lv_image_dsc_t *image;
+};
 
-#define SHELL_APPS_MAX   48
+#define SHELL_APPS_MAX   64 // 19 system apps + mini apps (APP_REG_MAX 40)
 #define SHELL_RECENT_MAX 3
 
 /** Add an app (the system apps are built in; mini apps come with the installer,
- *  P8-05). app must stay valid. ESP_ERR_INVALID_STATE if the id exists. */
+ *  mini_apps.h). app must stay valid until unregistered. ESP_ERR_INVALID_STATE if the id exists. */
 esp_err_t shell_app_register(const shell_app_t *app);
+/** Remove an app (and from the recent apps). An open launcher is not rebuilt: call
+ *  shell_launcher_refresh() after a batch of changes. */
+void shell_app_unregister(const char *id);
 size_t shell_app_count(void);
 const shell_app_t *shell_app_at(size_t index);
 const shell_app_t *shell_app_find(const char *id);
@@ -99,6 +119,9 @@ const shell_app_t *shell_app_find(const char *id);
 /** Open app: push its screen and remember it as recent, or a toast while the
  *  screen does not exist yet. */
 void shell_app_open(const shell_app_t *app);
+
+/** Rebuild an open launcher (the app list changed). */
+void shell_launcher_refresh(void);
 
 /** Launcher layout: list with sections (default) or honeycomb grid. Applies the next
  *  time the launcher is built (an open launcher rebuilds at once). */

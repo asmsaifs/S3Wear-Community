@@ -54,6 +54,9 @@ typedef enum {
     SVC_POWER_WAKE_RAISE,   // for svc_sensors (P3-05)
     SVC_POWER_WAKE_CONSOLE,
     SVC_POWER_WAKE_BATTERY, // low battery 10 % / 3 % (not in DND, sleep or theater mode)
+    SVC_POWER_WAKE_PAIRING, // a phone asks to pair: the code must be seen (every mode)
+    SVC_POWER_WAKE_FIND,    // the phone is looking for the watch (svc_find; every mode)
+    SVC_POWER_WAKE_CALL,    // an incoming call (svc_call; not in DND, sleep or theater mode)
     SVC_POWER_WAKE_COUNT,
 } svc_power_wake_t;
 
@@ -65,6 +68,9 @@ esp_err_t svc_power_user_activity(void);
 esp_err_t svc_power_screen_off(void);
 /** Keep the screen on while held (counted; UI_SCREEN_KEEP_ON, workouts). */
 esp_err_t svc_power_hold_screen(bool hold);
+/** Full panel brightness while on (flashlight); off returns to the DISPLAY_BRIGHTNESS setting,
+ *  which is never changed. Not counted: one user at a time. */
+esp_err_t svc_power_boost_brightness(bool on);
 /** Battery saver on/off (persisted as the BATTERY_SAVER setting). */
 esp_err_t svc_power_set_saver(bool on);
 /** WATCH-ONLY: the time-only screen, then deep sleep woken once a minute to redraw

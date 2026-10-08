@@ -15,8 +15,13 @@ static const char *TAG = "drv_audio";
 #define DEFAULT_RATE     16000
 #define DEFAULT_VOLUME   70
 
+// The I2S channels (and their DMA buffers, ~7.7 KB of internal RAM: 4 x 240 frames each way)
+// exist only while a direction is open: created by the first open, deleted when both are closed.
+// esp_codec_dev keeps its data interface; it is re-bound to the new channels on every create.
 static struct {
-    i2s_chan_handle_t tx;
+    drv_audio_config_t cfg;
+    const audio_codec_data_if_t *data_if;
+    i2s_chan_handle_t tx; // NULL while both directions are closed
     i2s_chan_handle_t rx;
     esp_codec_dev_handle_t out;
     esp_codec_dev_handle_t in;
@@ -29,6 +34,10 @@ static esp_err_t i2s_init(const drv_audio_config_t *cfg)
 {
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_PORT, I2S_ROLE_MASTER);
     chan_cfg.auto_clear = true; // underrun plays silence, not stale data
+    // 4 x 240 frames (60 ms each way) instead of IDF's 6: internal DMA RAM is short with BLE, the
+    // UI and svc_memo running (P7-01: opens failed with ~15 KB free). 60 ms still covers a flash
+    // sector erase (cache off, ~45 ms) while a voice memo records to /flash.
+    chan_cfg.dma_desc_num = 4;
     ESP_RETURN_ON_ERROR(i2s_new_channel(&chan_cfg, &s_audio.tx, &s_audio.rx), TAG, "i2s channels");
 
     // Both directions share MCLK/BCLK/WS. esp_codec_dev reconfigures rate/slots on open
@@ -44,8 +53,56 @@ static esp_err_t i2s_init(const drv_audio_config_t *cfg)
             .din = cfg->din,
         },
     };
-    ESP_RETURN_ON_ERROR(i2s_channel_init_std_mode(s_audio.tx, &std_cfg), TAG, "tx std");
-    return i2s_channel_init_std_mode(s_audio.rx, &std_cfg);
+    esp_err_t err = i2s_channel_init_std_mode(s_audio.tx, &std_cfg);
+    if (err == ESP_OK) {
+        err = i2s_channel_init_std_mode(s_audio.rx, &std_cfg);
+    }
+    if (err != ESP_OK) {
+        i2s_del_channel(s_audio.tx);
+        i2s_del_channel(s_audio.rx);
+        s_audio.tx = s_audio.rx = NULL;
+        ESP_LOGE(TAG, "i2s std mode: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+// Before an open: the channels, bound to esp_codec_dev's data interface.
+static esp_err_t chans_up(void)
+{
+    if (s_audio.tx) {
+        return ESP_OK;
+    }
+    ESP_RETURN_ON_ERROR(i2s_init(&s_audio.cfg), TAG, "i2s");
+    audio_codec_i2s_cfg_t c = {.port = I2S_PORT, .rx_handle = s_audio.rx, .tx_handle = s_audio.tx};
+    if (s_audio.data_if->open(s_audio.data_if, &c, sizeof c) != ESP_CODEC_DEV_OK) {
+        i2s_del_channel(s_audio.tx);
+        i2s_del_channel(s_audio.rx);
+        s_audio.tx = s_audio.rx = NULL;
+        ESP_LOGE(TAG, "i2s data if");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+// After a close: both directions closed (esp_codec_dev disabled the channels) -> delete them.
+static void chans_down(void)
+{
+    if (!s_audio.tx || s_audio.out_open || s_audio.in_open) {
+        return;
+    }
+    s_audio.data_if->close(s_audio.data_if);
+    // A mic-only open leaves the TX channel enabled after its close (esp_codec_dev runs both
+    // directions of the full-duplex port), and an enabled channel cannot be deleted: the next open
+    // would then find no free I2S controller. Disable both first; one that is not enabled only
+    // logs an error from i2s_common, hidden like in codec_open().
+    const esp_log_level_t level = esp_log_level_get("i2s_common");
+    esp_log_level_set("i2s_common", ESP_LOG_NONE);
+    i2s_channel_disable(s_audio.tx);
+    i2s_channel_disable(s_audio.rx);
+    esp_log_level_set("i2s_common", level);
+    i2s_del_channel(s_audio.tx);
+    i2s_del_channel(s_audio.rx);
+    s_audio.tx = s_audio.rx = NULL;
 }
 
 static const audio_codec_ctrl_if_t *i2c_ctrl(i2c_master_bus_handle_t bus, uint8_t addr_7bit)
@@ -62,11 +119,13 @@ esp_err_t drv_audio_init(const drv_audio_config_t *cfg)
 {
     ESP_RETURN_ON_FALSE(cfg && cfg->bus, ESP_ERR_INVALID_ARG, TAG, "args");
     ESP_RETURN_ON_FALSE(!s_audio.out, ESP_ERR_INVALID_STATE, TAG, "already init");
+    s_audio.cfg = *cfg;
     ESP_RETURN_ON_ERROR(i2s_init(cfg), TAG, "i2s");
 
     audio_codec_i2s_cfg_t i2s_cfg = {.port = I2S_PORT, .rx_handle = s_audio.rx, .tx_handle = s_audio.tx};
     const audio_codec_data_if_t *data_if = audio_codec_new_i2s_data(&i2s_cfg);
     ESP_RETURN_ON_FALSE(data_if, ESP_FAIL, TAG, "i2s data if");
+    s_audio.data_if = data_if;
 
     // ES8311 DAC + speaker amp. Hardware gain values from the Waveshare BSP.
     const audio_codec_ctrl_if_t *out_ctrl = i2c_ctrl(cfg->bus, cfg->es8311_addr);
@@ -105,6 +164,7 @@ esp_err_t drv_audio_init(const drv_audio_config_t *cfg)
     esp_codec_set_disable_when_closed(s_audio.out, true);
     esp_codec_set_disable_when_closed(s_audio.in, true);
     s_audio.volume = DEFAULT_VOLUME;
+    chans_down(); // nothing open yet: no DMA buffers until the first sound
     return ESP_OK;
 }
 
@@ -134,8 +194,13 @@ static int codec_open(esp_codec_dev_handle_t dev, esp_codec_dev_sample_info_t *f
 esp_err_t drv_audio_out_open(uint32_t rate, uint8_t channels)
 {
     ESP_RETURN_ON_FALSE(s_audio.out && !s_audio.out_open, ESP_ERR_INVALID_STATE, TAG, "out state");
+    ESP_RETURN_ON_ERROR(chans_up(), TAG, "channels");
     esp_codec_dev_sample_info_t fs = {.bits_per_sample = 16, .channel = channels, .sample_rate = rate};
-    ESP_RETURN_ON_ERROR(codec_err(codec_open(s_audio.out, &fs), "out open"), TAG, "open");
+    const esp_err_t err = codec_err(codec_open(s_audio.out, &fs), "out open");
+    if (err != ESP_OK) {
+        chans_down();
+        return err;
+    }
     s_audio.out_open = true;
     return codec_err(esp_codec_dev_set_out_vol(s_audio.out, s_audio.volume), "volume");
 }
@@ -152,7 +217,9 @@ esp_err_t drv_audio_out_close(void)
         return ESP_OK;
     }
     s_audio.out_open = false;
-    return codec_err(esp_codec_dev_close(s_audio.out), "out close");
+    const esp_err_t err = codec_err(esp_codec_dev_close(s_audio.out), "out close");
+    chans_down();
+    return err;
 }
 
 esp_err_t drv_audio_set_volume(int percent)
@@ -170,8 +237,13 @@ esp_err_t drv_audio_set_mute(bool mute)
 esp_err_t drv_audio_in_open(uint32_t rate, uint8_t channels, float gain_db)
 {
     ESP_RETURN_ON_FALSE(s_audio.in && !s_audio.in_open, ESP_ERR_INVALID_STATE, TAG, "in state");
+    ESP_RETURN_ON_ERROR(chans_up(), TAG, "channels");
     esp_codec_dev_sample_info_t fs = {.bits_per_sample = 16, .channel = channels, .sample_rate = rate};
-    ESP_RETURN_ON_ERROR(codec_err(codec_open(s_audio.in, &fs), "in open"), TAG, "open");
+    const esp_err_t err = codec_err(codec_open(s_audio.in, &fs), "in open");
+    if (err != ESP_OK) {
+        chans_down();
+        return err;
+    }
     s_audio.in_open = true;
     return codec_err(esp_codec_dev_set_in_gain(s_audio.in, gain_db), "gain");
 }
@@ -188,7 +260,9 @@ esp_err_t drv_audio_in_close(void)
         return ESP_OK;
     }
     s_audio.in_open = false;
-    return codec_err(esp_codec_dev_close(s_audio.in), "in close");
+    const esp_err_t err = codec_err(esp_codec_dev_close(s_audio.in), "in close");
+    chans_down();
+    return err;
 }
 
 // --- Loopback self-test ------------------------------------------------------------

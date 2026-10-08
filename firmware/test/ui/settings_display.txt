@@ -1,5 +1,0 @@
-# Display page: brightness slider, timeout, AOD, raise to wake (defaults).
-push settings
-wait 400
-tap 205 145
-wait 400

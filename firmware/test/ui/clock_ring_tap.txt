@@ -1,5 +1,0 @@
-# A tap on the slider does not stop the alarm (golden equals clock_ring_alarm.png).
-ring alarm
-wait 400
-tap 330 427
-wait 300

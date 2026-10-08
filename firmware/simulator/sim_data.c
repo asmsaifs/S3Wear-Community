@@ -28,6 +28,7 @@ void sim_data_demo(void)
     d->temp_c = 18;
     d->temp_lo_c = 12;
     d->temp_hi_c = 21;
+    d->weather_range = true;
     d->weather = WF_WEATHER_CLOUDY;
     d->phone_battery_pct = 64;
     d->event_valid = true;

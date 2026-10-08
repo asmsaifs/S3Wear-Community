@@ -1,7 +1,0 @@
-# Battery app: Watch only asks first.
-push battery
-wait 400
-swipe 205 440 205 100 300
-wait 600
-tap 205 350    # Watch only row
-wait 300

@@ -1,0 +1,4 @@
+# P12-01 Community: Settings > Connections without the Wi-Fi row.
+link connected
+push connections
+wait 400

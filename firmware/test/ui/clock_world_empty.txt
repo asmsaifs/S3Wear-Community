@@ -1,4 +1,0 @@
-# World clock with no cities.
-world -
-push world_clock
-wait 400

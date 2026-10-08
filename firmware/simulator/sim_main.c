@@ -5,6 +5,8 @@
  *   s3w_sim --script s.txt --screenshot o.png  run a scenario first (sim_script.c)
  *   ... --expect golden.png                    then fail unless o.png matches golden.png
  *   s3w_sim --faces <dir> [--face <id>]        also load <dir>/<id>/face.json, show one
+ *   s3w_sim --app <name|file.wasm>             start a mini app after boot (sim_app.c)
+ *   s3w_sim --dev <file.s3app>                 install + run a package, reload on change (s3w run-sim)
  *
  * Runs the same portable UI code as the watch (ui_framework/ui) over hal_sim.
  * Headless runs use a pinned clock (2026-10-03 10:09 UTC) so snapshots are stable.
@@ -23,9 +25,25 @@
 #include "clock_apps.h"
 #include "lvgl.h"
 #include "shell.h"
+#if S3W_EDITION_PRO
+#include "sim_app.h"
+#endif
 #include "sim_battery.h"
 #include "sim_settings.h"
 #include "sim_clock.h"
+#include "s3w_edition.h"
+#include "sim_connect.h"
+#if S3W_EDITION_PRO
+#include "sim_notify.h"
+#include "sim_find.h"
+#include "sim_flashlight.h"
+#include "sim_call.h"
+#include "sim_media.h"
+#include "sim_ha.h"
+#include "sim_memo.h"
+#include "find_apps.h"
+#include "call_apps.h"
+#endif
 #include "sim_data.h"
 #include "sim_modes.h"
 #include "sim_screenshot.h"
@@ -42,7 +60,7 @@
 #define SETTLE_MS 500 /* boot fade-in and first layout before a script starts */
 
 /* svc_input does not run in the simulator yet: BOOT = back (launcher on the face),
- * PWR = home (snooze while an alarm rings), on press. */
+ * PWR = home (snooze while an alarm rings, mute an incoming call), on press. */
 static void on_button(hal_button_t button, bool pressed, void *ctx)
 {
     (void)ctx;
@@ -57,6 +75,12 @@ static void on_button(hal_button_t button, bool pressed, void *ctx)
     } else if (button == HAL_BUTTON_POWER) {
         if (clock_apps_ring_active()) {
             clock_apps_ring_key();
+#if S3W_EDITION_PRO
+        } else if (find_apps_watch_active()) {
+            find_apps_watch_key();
+        } else if (call_apps_key()) {
+            // PWR muted the incoming call
+#endif
         } else {
             ui_nav_home();
         }
@@ -77,11 +101,13 @@ static void on_pmu(hal_pmu_event_t evt, void *ctx)
 }
 
 /* Quick settings backend, like app_main's but in memory (no svc_settings here);
- * DND, theater and sleep come from sim_modes, battery saver from sim_battery. */
+ * DND, theater and sleep come from sim_modes, battery saver from sim_battery,
+ * Bluetooth and Wi-Fi from sim_connect (shared with Settings > Connections). */
 #define QS_MODES ((1u << SHELL_QS_DND) | (1u << SHELL_QS_THEATER) | (1u << SHELL_QS_SLEEP))
 
 static shell_qs_state_t s_qs = {
-    .available = QS_MODES | (1u << SHELL_QS_AOD) | (1u << SHELL_QS_SILENT) | (1u << SHELL_QS_SAVER),
+    .available = QS_MODES | (1u << SHELL_QS_AOD) | (1u << SHELL_QS_SILENT) | (1u << SHELL_QS_SAVER) |
+                 (1u << SHELL_QS_BLUETOOTH) | (1u << SHELL_QS_WIFI),
     .brightness = 60,
 };
 
@@ -92,9 +118,10 @@ static void qs_read(shell_qs_state_t *st, void *ctx)
     hal_pmu_read_battery(&b);
     *st = s_qs;
     const modes_state_t m = sim_modes_state();
-    st->on = (st->on & ~(QS_MODES | 1u << SHELL_QS_SAVER)) | (m.dnd ? 1u << SHELL_QS_DND : 0) |
-             (m.theater ? 1u << SHELL_QS_THEATER : 0) | (m.sleep ? 1u << SHELL_QS_SLEEP : 0) |
-             (sim_battery_saver() ? 1u << SHELL_QS_SAVER : 0);
+    st->on = (st->on & ~(QS_MODES | 1u << SHELL_QS_SAVER | 1u << SHELL_QS_BLUETOOTH | 1u << SHELL_QS_WIFI)) |
+             (m.dnd ? 1u << SHELL_QS_DND : 0) | (m.theater ? 1u << SHELL_QS_THEATER : 0) |
+             (m.sleep ? 1u << SHELL_QS_SLEEP : 0) | (sim_battery_saver() ? 1u << SHELL_QS_SAVER : 0) |
+             (sim_connect_bluetooth() ? 1u << SHELL_QS_BLUETOOTH : 0) | (sim_connect_wifi() ? 1u << SHELL_QS_WIFI : 0);
     st->battery_pct = b.percent;
     st->charging = b.charging;
 }
@@ -111,6 +138,14 @@ static void qs_toggle(shell_qs_item_t item, bool on, void *ctx)
         sim_battery_set_saver(on);
         return;
     }
+    if (item == SHELL_QS_BLUETOOTH) {
+        sim_connect_set_bluetooth(on);
+        return;
+    }
+    if (item == SHELL_QS_WIFI) {
+        sim_connect_set_wifi(on);
+        return;
+    }
     s_qs.on = on ? s_qs.on | 1u << item : s_qs.on & ~(1u << item);
 }
 
@@ -124,6 +159,9 @@ static void qs_brightness(uint8_t pct, void *ctx)
 
 static const char *s_faces_dir; /* --faces: declarative faces to load at boot */
 static const char *s_face_id;   /* --face: face to show */
+static const char *s_app;       /* --app: mini app to start */
+static const char *s_dev;       /* --dev: package to install and run (s3w run-sim) */
+static bool s_headless;
 
 static void face_report(const char *path, esp_err_t result, const wf_decl_err_t *err, void *ctx)
 {
@@ -168,19 +206,50 @@ static void boot(lv_display_t *disp)
     sim_data_battery();
     sim_data_demo();
     sim_clock_init();
+#if S3W_EDITION_PRO
+    sim_notify_init();
+    sim_find_init();
+    sim_flashlight_init();
+    sim_media_init();
+    sim_call_init();
+#endif
+    sim_connect_init();
+#if S3W_EDITION_PRO
+    sim_ha_init();
+    sim_memo_init();
+#endif
+#if S3W_EDITION_PRO /* installable mini apps: Pro only */
+    sim_app_init();
+#endif
     ui_start();
+#if S3W_EDITION_PRO
+    if (s_app != NULL && !sim_app_run(s_app)) {
+        fprintf(stderr, "app: cannot run '%s'\n", s_app);
+    }
+    /* In a window the package is watched: a rebuild reinstalls and restarts the app. */
+    if (s_dev != NULL && !sim_app_dev(s_dev, !s_headless)) {
+        fprintf(stderr, "app: cannot install '%s'\n", s_dev);
+    }
+#else
+    if (s_app != NULL || s_dev != NULL) {
+        fprintf(stderr, "--app / --dev: the Community edition has no mini apps\n");
+    }
+#endif
 }
 
 static void usage(const char *prog)
 {
     fprintf(stderr,
             "usage: %s [--script <file.txt>] [--screenshot <file.png> [--expect <golden.png>]]\n"
-            "          [--faces <dir>] [--face <id>]\n"
+            "          [--faces <dir>] [--face <id>] [--app <name|file.wasm>] [--dev <file.s3app>]\n"
             "  --script <file>      run a scenario headless (firmware/test/ui/README.md)\n"
             "  --screenshot <file>  render headless (no window) and write a PNG at the end\n"
             "  --expect <file>      exit 1 unless the screenshot matches this PNG exactly\n"
             "  --faces <dir>        load declarative faces from <dir>/<id>/face.json\n"
-            "  --face <id>          show this face (native, sample or loaded)\n",
+            "  --face <id>          show this face (native, sample or loaded)\n"
+            "  --app <name|file>    start a mini app: widgets (SDK sample), a test app or a .wasm\n"
+            "  --dev <file.s3app>   install a package without asking and run it; in a window, reinstall\n"
+            "                       and restart it whenever the file changes (s3w run-sim)\n",
             prog);
 }
 
@@ -254,6 +323,10 @@ int main(int argc, char **argv)
             s_faces_dir = argv[++i];
         } else if (strcmp(argv[i], "--face") == 0 && i + 1 < argc) {
             s_face_id = argv[++i];
+        } else if (strcmp(argv[i], "--app") == 0 && i + 1 < argc) {
+            s_app = argv[++i];
+        } else if (strcmp(argv[i], "--dev") == 0 && i + 1 < argc) {
+            s_dev = argv[++i];
         } else {
             usage(argv[0]);
             return strcmp(argv[i], "--help") == 0 ? 0 : 2;
@@ -266,5 +339,6 @@ int main(int argc, char **argv)
 
     lv_init();
     const bool headless = screenshot != NULL || script != NULL;
+    s_headless = headless;
     return headless ? run_headless(script, screenshot, expect) : run_window();
 }

@@ -1,8 +1,0 @@
-# WATCH-ONLY in 12 h format at 21:58 (no AM/PM: the light digits have none),
-# battery above 10 % in dim grey; burn-in offset of that minute.
-clock 12
-time 21:58
-battery 64
-watchonly
-wait 100
-lit 3

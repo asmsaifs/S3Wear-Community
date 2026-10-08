@@ -1,5 +1,0 @@
-# Unplugging closes the charging screen.
-charger in
-wait 700
-charger out
-wait 500

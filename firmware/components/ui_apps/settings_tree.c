@@ -3,6 +3,8 @@
 
 #include <string.h>
 
+#include "s3w_edition.h"
+
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
 
 // Symbols in the generated fonts only (tools/fonts/gen_fonts.sh). Written as the
@@ -61,6 +63,9 @@ static const settings_node_t SOUND_ROWS[] = {
     SLIDER("System volume", VOLUME_SYSTEM, 0, 100, "%"),
     SLIDER("Alarm volume", VOLUME_ALARM, 10, 100, "%"),
     CHOICE("Haptics", HAPTICS_LEVEL, HAPTICS_OPTS),
+#if S3W_EDITION_PRO
+    TOGGLE("Ring for calls", CALL_RING),
+#endif
 };
 
 static const settings_node_t DND_ROWS[] = {
@@ -76,15 +81,11 @@ static const settings_node_t SLEEP_ROWS[] = {
 };
 
 static const settings_node_t NOTIFY_ROWS[] = {
+#if S3W_EDITION_PRO
     TOGGLE("Wake on alert", WAKE_ON_NOTIFY),
+#endif
     PAGE("Do not disturb", NULL, DND_ROWS),
     PAGE("Sleep mode", NULL, SLEEP_ROWS),
-};
-
-static const settings_node_t CONNECT_ROWS[] = {
-    SOON("Bluetooth", NULL),
-    SOON("Wi-Fi", NULL),
-    ACTION("Forget phone", SETTINGS_ACT_FORGET_PHONE, "The watch will need to be paired again.", true),
 };
 
 static const settings_node_t BATTERY_ROWS[] = {
@@ -124,15 +125,17 @@ static const settings_node_t SYSTEM_ROWS[] = {
     ACTION("Factory reset", SETTINGS_ACT_FACTORY_RESET, "Settings go back to their defaults and the watch restarts.", true),
 };
 
-// F18 order.
+// F18 order. The Community edition leaves out the Pro rows (docs/10 §3).
 static const settings_node_t ROOT_ROWS[] = {
     PAGE("Display", ICON_EYE, DISPLAY_ROWS),
     PAGE("Sound", ICON_VOLUME, SOUND_ROWS),
     PAGE("Notifications", ICON_BELL, NOTIFY_ROWS),
     APP("Watch faces", ICON_HOME, "face.picker"),
     SOON("Apps", ICON_LIST),
+#if S3W_EDITION_PRO
     SOON("Health", ICON_PLUS),
-    PAGE("Connections", ICON_BLUETOOTH, CONNECT_ROWS),
+#endif
+    APP("Connections", ICON_BLUETOOTH, "connections"), // live link state: connect_apps.c
     PAGE("Battery", ICON_BATTERY, BATTERY_ROWS),
     SOON("Security", ICON_EYE_OFF),
     PAGE("Accessibility", ICON_IMAGE, ACCESS_ROWS),

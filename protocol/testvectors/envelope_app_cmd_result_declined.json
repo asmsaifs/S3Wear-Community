@@ -1,0 +1,11 @@
+{
+  "appCmd": {
+    "cmd": 1,
+    "appId": "com.example.hello",
+    "install": true,
+    "result": {
+      "code": 5,
+      "message": "declined on the watch"
+    }
+  }
+}

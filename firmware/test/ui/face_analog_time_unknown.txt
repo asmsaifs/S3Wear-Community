@@ -1,4 +1,0 @@
-# Analog while the time is unknown: no hands, "Time not set" hint.
-face analog
-time unknown
-wait 100

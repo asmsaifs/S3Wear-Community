@@ -1,4 +1,0 @@
-# Long-press on a complication opens the picker, not the complication's app.
-# Golden equals face_picker.png.
-hold 205 448
-wait 400

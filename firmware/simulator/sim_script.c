@@ -22,12 +22,19 @@
  *   data demo|clear                demo complication data / everything unknown
  *   lit <max-%>                    fail unless fewer than max-% of the pixels are lit
  *   launcher grid|list             shell_launcher_set_grid(): the LAUNCHER_GRID setting
+ *   pro locked|unlocked            shell_set_pro_locked(): no valid Pro licence (svc_license, Pro only)
  *   clock 12|24                    ui_clock_set_24h(): the TIME_24H setting
  *   alarm <HH:MM> [days] [label]   add an alarm; days once|daily|weekdays|weekends (default once)
  *   alarm clear                    remove every alarm
  *   timer <seconds>                start a countdown (runs on the LVGL tick: `wait` moves it)
  *   ring alarm|timer               ring the first enabled alarm / finish the first running timer
  *   world <ids|->                  clock_apps_set_world(): the WORLD_CLOCKS setting ("-" = none)
+ *   app <name|id|file.wasm>        run a mini app (sim_app.c): installed id, widgets (SDK sample) or a test app
+ *   app-install <pkg.s3app>        check a package, show the consent screen (P8-05)
+ *   app-uninstall <id>             uninstall at once
+ *   app-installed <id> <ver|none>  fail unless that version (or none) is installed
+ *   app-stop                       the system stops the app (s3w_on_stop)
+ *   app-is running|exited|trapped|hung|none   fail unless the app's state is that
  *   setting <nvs-key> <value>      set a Settings app value (sim_settings.c); setting-is fails unless it equals value
  *   mode dnd|sleep|theater on|off  turn a mode on/off by hand (sim_modes.c, as quick settings does)
  *   sched dnd|sleep <HH:MM> <HH:MM> [daily|weekdays|weekends]   schedule a mode (default daily)
@@ -36,6 +43,46 @@
  *   charger in|out                 plug / unplug USB power (PMU events -> charging screen)
  *   low 15|10|3                    battery at that level and its low-battery flow
  *   watchonly                      the WATCH-ONLY screen for the pinned minute
+ *   pair <code> [replace]          a phone asks to pair (svc_ble's request): the code alert
+ *   pair-end ok|fail               the pairing ended (phone_apps_pair_done)
+ *   pair-is yes|no|none            fail unless the user's answer to the last request is that
+ *   find-watch on|off              the phone starts / stops the watch ringing (sim_find.c)
+ *   find-phone <state>             the phone's answer: idle|ringing|stopped|offline|noanswer|unsupported|refused
+ *   find-asked ring|stop|none      fail unless the app's last request to the phone was that
+ *   find-stopped yes|no            fail unless the user stopped the watch ringing (or not)
+ *   flash-boost yes|no        fail unless the panel is at full brightness for the flashlight (or not)
+ *   flash-keeps-on yes|no     fail unless the screen is held on by the top screen (or not)
+ *   media none|offline|playing|paused|long|nonlatin|live|novol   the phone's media session (sim_media.c)
+ *   media-art demo|none|broken     the artwork arrives: the demo JPEG (decoded), none, or one that fails to decode
+ *   media-text on|off              the phone draws titles the fonts lack (bars stand in for the text)
+ *   media-asked <cmd>|none         fail unless the Media app's last command was that (play, pause, next, prev, vol+, vol-)
+ *   media-fail offline|noanswer|unsupported|refused   a media command failed: the toast
+ *   weather demo|stale|expired|current|night|none   the phone's forecast (sim_weather.c)
+ *   calendar demo|empty|none       the phone's agenda (sim_calendar.c)
+ *   call ring|ring-nocontrol <name>|<number>   an incoming call (sim_call.c)
+ *   call answered|end|missed       the phone answered / ended / missed the call
+ *   call active <name>|<number>    a call dialled on the phone
+ *   call missed-demo               three missed calls (today, yesterday, last week)
+ *   call-asked <cmd>|clear|silenced|none   fail unless the screens' last request was that
+ *   call-fail offline|noanswer|unsupported|denied|refused   the last call command failed: the toast
+ *   link connected|reconnecting|unpaired   the phone link state on Settings > Connections (sim_connect.c)
+ *   link-sync <seconds>|never      age of the last sync with the phone (default 300)
+ *   link-bt-is on|off              fail unless the Bluetooth switch is that
+ *   link-asked reconnect|forget|none   fail unless the Connections page's last request was that
+ *   wifi off|searching|joining|joined|notfound|auth|noip   Wi-Fi state on Settings > Connections > Wi-Fi
+ *   wifi-saved <ssid>[,<ssid>...]|none   the saved Wi-Fi networks (default "Home")
+ *   wifi-is on|off                 fail unless the Wi-Fi switch is that
+ *   wifi-forgot <ssid>|none        fail unless the last network forgotten on the Wi-Fi page was that
+ *   ha demo|unread|empty|none      Home Assistant entities and their states (sim_ha.c)
+ *   ha-via wifi|phone, ha-error <err>|none, ha-busy <n>, ha-refreshing   how the last call went
+ *   ha-asked tap <n>|refresh|none  fail unless the Home screens' last request was that
+ *   memo demo|none                 voice memos: three (the newest being sent, one on the phone) / none (sim_memo.c)
+ *   memo-state idle|rec <s> <level>|play <n> <s>   the recorder / player state
+ *   memo-result <how>              saved|full|short|nospace|mic|storage|played|playfail: how it ended
+ *   memo-asked <what>|none         fail unless the app's last request was that (record, stop, play <n>, delete <n>)
+ *
+ * The Community build (S3W_EDITION_PRO off) has no notif, find, flash, media, weather, calendar,
+ * call, ha or memo commands (docs/10 §3).
  *
  * Time only moves with wait/tap/swipe, so runs are deterministic. */
 #include "sim_script.h"
@@ -46,13 +93,30 @@
 
 #include "hal.h"
 #include "hal_sim.h"
+#include "phone_apps.h"
 #include "alarm_sched.h"
 #include "battery_apps.h"
 #include "clock_apps.h"
+#if S3W_EDITION_PRO
+#include "sim_app.h"
+#endif
 #include "sim_battery.h"
 #include "sim_clock.h"
 #include "sim_data.h"
 #include "sim_modes.h"
+#include "s3w_edition.h"
+#include "sim_connect.h"
+#if S3W_EDITION_PRO
+#include "sim_notify.h"
+#include "sim_find.h"
+#include "sim_flashlight.h"
+#include "sim_media.h"
+#include "sim_weather.h"
+#include "sim_calendar.h"
+#include "sim_call.h"
+#include "sim_ha.h"
+#include "sim_memo.h"
+#endif
 #include "sim_settings.h"
 #include "shell.h"
 #include "sim_screenshot.h"
@@ -261,6 +325,39 @@ static bool cmd_swipe(int x1, int y1, int x2, int y2, int ms)
     return true;
 }
 
+// Pairing: the answer the user gave to the last request (svc_ble_pair_reply on the watch).
+static const char *s_pair_answer = "none";
+
+static void pair_reply(bool accept, void *ctx)
+{
+    (void)ctx;
+    s_pair_answer = accept ? "yes" : "no";
+}
+
+static bool cmd_pair(const char *cmd, const char *arg)
+{
+    if (strcmp(cmd, "pair-end") == 0 && (strcmp(arg, "ok") == 0 || strcmp(arg, "fail") == 0)) {
+        phone_apps_pair_done(arg[0] == 'o');
+        return true;
+    }
+    if (strcmp(cmd, "pair-is") == 0) {
+        if (strcmp(arg, s_pair_answer) != 0) {
+            fprintf(stderr, "script: pairing answer is %s, not %s\n", s_pair_answer, arg);
+            return false;
+        }
+        return true;
+    }
+    unsigned long code;
+    char extra[16] = "";
+    if (sscanf(arg, "%lu %15s", &code, extra) < 1 || code > 999999 || (extra[0] && strcmp(extra, "replace") != 0)) {
+        fprintf(stderr, "script: usage: pair <code> [replace]\n");
+        return false;
+    }
+    s_pair_answer = "none";
+    phone_apps_pair_request((uint32_t)code, extra[0] != '\0', pair_reply, NULL);
+    return true;
+}
+
 static bool run_line(char *line, lv_display_t *disp)
 {
     char *hash = strchr(line, '#');
@@ -349,6 +446,9 @@ static bool run_line(char *line, lv_display_t *disp)
         }
     } else if (strcmp(cmd, "launcher") == 0 && (strcmp(arg, "grid") == 0 || strcmp(arg, "list") == 0)) {
         shell_launcher_set_grid(arg[0] == 'g');
+    } else if (strcmp(cmd, "pro") == 0 && S3W_EDITION_PRO &&
+               (strcmp(arg, "locked") == 0 || strcmp(arg, "unlocked") == 0)) {
+        shell_set_pro_locked(arg[0] == 'l');
     } else if (strcmp(cmd, "clock") == 0 && (strcmp(arg, "12") == 0 || strcmp(arg, "24") == 0)) {
         ui_clock_set_24h(arg[0] == '2');
     } else if (strcmp(cmd, "alarm") == 0 && *arg) {
@@ -393,6 +493,34 @@ static bool run_line(char *line, lv_display_t *disp)
         battery_apps_low((uint8_t)a, (int8_t)a);
     } else if (strcmp(cmd, "watchonly") == 0) {
         cmd_watch_only();
+#if S3W_EDITION_PRO
+    } else if (strncmp(cmd, "notif", 5) == 0) {
+        return sim_notify_cmd(cmd, arg);
+    } else if (strncmp(cmd, "find-", 5) == 0) {
+        return sim_find_cmd(cmd, arg);
+    } else if (strncmp(cmd, "flash-", 6) == 0) {
+        return sim_flashlight_cmd(cmd, arg);
+    } else if (strncmp(cmd, "media", 5) == 0) {
+        return sim_media_cmd(cmd, arg);
+    } else if (strcmp(cmd, "weather") == 0) {
+        return sim_weather_cmd(cmd, arg);
+    } else if (strcmp(cmd, "calendar") == 0) {
+        return sim_calendar_cmd(cmd, arg);
+    } else if (strcmp(cmd, "call") == 0 || strncmp(cmd, "call-", 5) == 0) {
+        return sim_call_cmd(cmd, arg);
+    } else if (strcmp(cmd, "ha") == 0 || strncmp(cmd, "ha-", 3) == 0) {
+        return sim_ha_cmd(cmd, arg);
+    } else if (strcmp(cmd, "memo") == 0 || strncmp(cmd, "memo-", 5) == 0) {
+        return sim_memo_cmd(cmd, arg);
+#endif
+    } else if (strncmp(cmd, "link", 4) == 0 || strncmp(cmd, "wifi", 4) == 0) {
+        return sim_connect_cmd(cmd, arg);
+#if S3W_EDITION_PRO
+    } else if (strcmp(cmd, "app") == 0 || strncmp(cmd, "app-", 4) == 0 || strcmp(cmd, "imu") == 0) {
+        return sim_app_cmd(cmd, arg);
+#endif
+    } else if (strncmp(cmd, "pair", 4) == 0) {
+        return cmd_pair(cmd, arg);
     } else if (strcmp(cmd, "lit") == 0) {
         return cmd_lit(arg, disp);
     } else if (strcmp(cmd, "shot") == 0 && *arg) {

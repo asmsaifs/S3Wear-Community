@@ -1,9 +1,0 @@
-# Back from a sub page keeps the scroll position of the page below (golden equals settings_scroll).
-push settings
-wait 400
-swipe 205 420 205 60
-wait 300
-tap 205 177
-wait 400
-key back
-wait 500

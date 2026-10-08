@@ -1,0 +1,7 @@
+{
+  "id": 7,
+  "haCommand": {
+    "op": 1,
+    "entityId": "light.kitchen"
+  }
+}

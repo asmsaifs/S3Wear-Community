@@ -1,5 +1,0 @@
-# Confirm dialog covering the screen.
-push gallery.overlays
-wait 400
-tap 200 432
-wait 300

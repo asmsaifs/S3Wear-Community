@@ -1,9 +1,0 @@
-# Time screen for a schedule time (DND From, 22:00 by default).
-push settings
-wait 400
-tap 205 336
-wait 400
-tap 205 240
-wait 400
-tap 205 240
-wait 400

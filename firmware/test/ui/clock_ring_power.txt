@@ -1,5 +1,0 @@
-# PWR while ringing snoozes (golden equals clock_ring_snooze.png).
-ring alarm
-wait 400
-key power
-wait 500

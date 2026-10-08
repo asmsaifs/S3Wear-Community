@@ -128,23 +128,6 @@ dependencies:
     - esp32c61
     - esp32h4
     version: 1.0.2
-  espressif/wasm-micro-runtime:
-    component_hash: 04f25aad2896b5e906397a061d35cce560609bebd3913a4be7e365ecbf2dd9d6
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=5.1'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    targets:
-    - esp32
-    - esp32s3
-    - esp32c3
-    - esp32c6
-    - esp32p4
-    - esp32c5
-    version: 2.4.0~1
   idf:
     source:
       type: idf
@@ -170,10 +153,8 @@ direct_dependencies:
 - espressif/esp-sr
 - espressif/esp_codec_dev
 - espressif/esp_lcd_touch_ft5x06
-- espressif/wasm-micro-runtime
 - idf
 - joltwallet/littlefs
 - lvgl/lvgl
-manifest_hash: f740e0f64f92e8107ac676dde769e8a510cc526d0aad62cd670b8b5c8bfb956b
 target: esp32s3
 version: 2.0.0

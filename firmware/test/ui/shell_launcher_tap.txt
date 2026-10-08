@@ -1,5 +1,0 @@
-# A launcher row opens its app (Alarms).
-key back
-wait 400
-tap 205 204    # Alarms
-wait 300

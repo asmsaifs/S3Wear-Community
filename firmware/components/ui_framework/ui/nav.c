@@ -7,9 +7,9 @@
 #include "ui_theme.h"
 
 #define SCREEN_TIMERS     4
-#define REGISTRY_MAX      32
+#define REGISTRY_MAX      64 // screen ids (ui_nav_register); 33 in use after P6-01, more come with Phase 6-8
 #define CLOCK_LABELS_MAX  16
-#define CLOCK_LISTENERS   4
+#define CLOCK_LISTENERS   8
 #define EDGE_W            UI_SAFE_INSET // strip along the left edge that starts a back swipe
 #define EDGE_TRIGGER_DX   80            // px of travel that counts as "back"
 #define EDGE_KNOB         56
@@ -31,6 +31,7 @@ static const screen_def_t *s_registry[REGISTRY_MAX];
 static size_t s_registry_n;
 
 static const screen_def_t *s_home_swipe[4]; // by finger direction: left, right, up, down
+static const screen_def_t *(*s_gate)(const screen_def_t *def);
 
 static lv_obj_t *s_edge;      // touch strip on the top layer
 static lv_obj_t *s_edge_knob; // feedback circle that follows the finger
@@ -565,6 +566,16 @@ esp_err_t ui_nav_push_slide(const screen_def_t *def, const void *args, ui_slide_
     if (s_depth == 0) {
         return ESP_ERR_INVALID_STATE;
     }
+    if (s_gate) {
+        const screen_def_t *instead = s_gate(def);
+        if (instead != def) {
+            def = instead;
+            args = NULL; // meant for the other screen
+        }
+        if (def == NULL) {
+            return ESP_ERR_NOT_SUPPORTED;
+        }
+    }
     if (s_depth >= UI_NAV_MAX_DEPTH) {
         LV_LOG_WARN("ui_nav: stack full, cannot push %s", def->id);
         return ESP_ERR_NO_MEM;
@@ -578,6 +589,11 @@ esp_err_t ui_nav_push_slide(const screen_def_t *def, const void *args, ui_slide_
     update_visibility();
     transition(s->root, below, from, true, false);
     return ESP_OK;
+}
+
+void ui_nav_set_gate(const screen_def_t *(*gate)(const screen_def_t *def))
+{
+    s_gate = gate;
 }
 
 esp_err_t ui_nav_push_id(const char *id, const void *args)

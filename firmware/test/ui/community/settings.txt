@@ -1,0 +1,5 @@
+# P12-01 Community: the Settings top page scrolled to Connections: no Health row.
+push settings
+wait 400
+swipe 205 300 205 80
+wait 300

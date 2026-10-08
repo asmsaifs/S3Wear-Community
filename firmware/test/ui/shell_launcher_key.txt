@@ -1,3 +1,0 @@
-# BOOT (back) on the face opens the launcher. Golden equals shell_launcher.png.
-key back
-wait 400

@@ -55,6 +55,7 @@ typedef enum {
     MSG_TOUCH,
     MSG_SCREEN_OFF,
     MSG_HOLD,       // a = hold
+    MSG_BOOST,      // a = full brightness on
     MSG_PMU,        // a = hal_pmu_event_t
     MSG_SETTINGS,
     MSG_MODES,      // a = MODES_* bits
@@ -87,6 +88,7 @@ static struct {
     power_fsm_t fsm;
     volatile power_state_t applied;
     uint8_t brightness; // user level 0..255
+    bool boost;         // svc_power_boost_brightness(): ACTIVE at full brightness, setting untouched
     bool wake_on_tap;
     bool wake_on_raise; // arm the IMU interrupt (svc_sensors drives it)
     bool raise_unused;  // woken by a raise and not touched since (false-wake count)
@@ -221,7 +223,7 @@ static uint8_t level_for(power_state_t st)
 {
     switch (st) {
     case POWER_STATE_ACTIVE:
-        return s.brightness;
+        return s.boost ? 255 : s.brightness;
     case POWER_STATE_DIM: {
         const int dim = s.brightness * DIM_PCT / 100;
         return (uint8_t)(dim > 0 ? dim : 1);
@@ -589,6 +591,12 @@ static void handle(const msg_t *m, uint32_t now)
     case MSG_HOLD:
         power_fsm_hold(&s.fsm, m->a, now);
         break;
+    case MSG_BOOST:
+        s.boost = m->a;
+        if (s.applied == POWER_STATE_ACTIVE) {
+            hal_display_set_brightness(level_for(POWER_STATE_ACTIVE));
+        }
+        break;
     case MSG_PMU:
         // PWR short/long come from the SYS_OUT button GPIO; the rest changes the battery.
         if (m->a == HAL_PMU_EVT_PKEY_SHORT || m->a == HAL_PMU_EVT_PKEY_LONG) {
@@ -774,6 +782,11 @@ esp_err_t svc_power_hold_screen(bool hold)
     return post(MSG_HOLD, hold, 0);
 }
 
+esp_err_t svc_power_boost_brightness(bool on)
+{
+    return post(MSG_BOOST, on, 0);
+}
+
 esp_err_t svc_power_set_saver(bool on)
 {
     return svc_settings_set_bool(S3W_SETTING_BATTERY_SAVER, on); // svc_power follows the change event
@@ -897,6 +910,8 @@ const char *svc_power_wake_name(svc_power_wake_t reason)
         [SVC_POWER_WAKE_TOUCH] = "touch",   [SVC_POWER_WAKE_BUTTON] = "button", [SVC_POWER_WAKE_CHARGER] = "charger",
         [SVC_POWER_WAKE_ALARM] = "alarm",   [SVC_POWER_WAKE_NOTIFY] = "notify", [SVC_POWER_WAKE_RAISE] = "raise",
         [SVC_POWER_WAKE_CONSOLE] = "console", [SVC_POWER_WAKE_BATTERY] = "battery",
+        [SVC_POWER_WAKE_PAIRING] = "pairing", [SVC_POWER_WAKE_FIND] = "find",
+        [SVC_POWER_WAKE_CALL] = "call",
     };
     return (unsigned)reason < SVC_POWER_WAKE_COUNT ? k_names[reason] : "?";
 }

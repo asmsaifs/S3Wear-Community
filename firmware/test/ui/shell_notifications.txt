@@ -1,3 +1,0 @@
-# Swipe up on the face: notifications (placeholder until P6) from the bottom.
-swipe 205 400 205 120
-wait 400

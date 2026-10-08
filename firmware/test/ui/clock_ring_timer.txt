@@ -1,3 +1,0 @@
-# A finished timer rings by itself: duration, Stop, Restart.
-timer 2
-wait 2600

@@ -1,4 +1,0 @@
-# Minimal with its empty slot set to the moon phase.
-face minimal
-slot minimal 0 moon
-wait 100

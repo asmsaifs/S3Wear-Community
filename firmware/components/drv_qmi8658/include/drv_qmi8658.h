@@ -56,10 +56,16 @@ esp_err_t qmi8658_enable(qmi8658_handle_t h, bool accel, bool gyro);
 esp_err_t qmi8658_read(qmi8658_handle_t h, int32_t acc_mg[3], int32_t gyr_mdps[3]);
 esp_err_t qmi8658_read_temp(qmi8658_handle_t h, int16_t *cdeg);
 
-/** Stream-mode FIFO of `size` frames, watermark interrupt on INT1 after `watermark` frames. */
-esp_err_t qmi8658_fifo_config(qmi8658_handle_t h, qmi8658_fifo_size_t size, uint8_t watermark);
-/** Drain the FIFO into buf; *len = bytes read. Frame layout: see qmi8658_fifo_parse(). */
-esp_err_t qmi8658_fifo_read(qmi8658_handle_t h, uint8_t *buf, size_t cap, size_t *len);
+/**
+ * Stream-mode FIFO of `size` frames (resets it). int1: watermark interrupt on INT1 after
+ * `watermark` frames; false: no interrupt, the caller polls qmi8658_fifo_read().
+ */
+esp_err_t qmi8658_fifo_config(qmi8658_handle_t h, qmi8658_fifo_size_t size, uint8_t watermark, bool int1);
+/**
+ * Drain the FIFO into buf; *len = bytes read. Frame layout: see qmi8658_fifo_parse().
+ * status (may be NULL): FIFO_STATUS before the read (QMI8658_FIFO_OVERFLOW: frames lost).
+ */
+esp_err_t qmi8658_fifo_read(qmi8658_handle_t h, uint8_t *buf, size_t cap, size_t *len, uint8_t *status);
 esp_err_t qmi8658_fifo_disable(qmi8658_handle_t h);
 
 /**

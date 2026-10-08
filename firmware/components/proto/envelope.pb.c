@@ -6,7 +6,7 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(s3w_v1_Envelope, s3w_v1_Envelope, 2)
+PB_BIND(s3w_v1_Envelope, s3w_v1_Envelope, 4)
 
 
 PB_BIND(s3w_v1_Status, s3w_v1_Status, AUTO)
@@ -22,6 +22,152 @@ PB_BIND(s3w_v1_TimeSync, s3w_v1_TimeSync, AUTO)
 
 
 PB_BIND(s3w_v1_Ack, s3w_v1_Ack, AUTO)
+
+
+PB_BIND(s3w_v1_DeviceStatus, s3w_v1_DeviceStatus, AUTO)
+
+
+PB_BIND(s3w_v1_NotificationPosted, s3w_v1_NotificationPosted, 2)
+
+
+PB_BIND(s3w_v1_NotificationPosted_Action, s3w_v1_NotificationPosted_Action, AUTO)
+
+
+PB_BIND(s3w_v1_NotificationRemoved, s3w_v1_NotificationRemoved, AUTO)
+
+
+PB_BIND(s3w_v1_NotificationAction, s3w_v1_NotificationAction, 2)
+
+
+PB_BIND(s3w_v1_AppIcon, s3w_v1_AppIcon, 4)
+
+
+PB_BIND(s3w_v1_TextBitmap, s3w_v1_TextBitmap, 4)
+
+
+PB_BIND(s3w_v1_FindDevice, s3w_v1_FindDevice, AUTO)
+
+
+PB_BIND(s3w_v1_CallState, s3w_v1_CallState, AUTO)
+
+
+PB_BIND(s3w_v1_CallCommand, s3w_v1_CallCommand, AUTO)
+
+
+PB_BIND(s3w_v1_MediaState, s3w_v1_MediaState, 2)
+
+
+PB_BIND(s3w_v1_MediaCommand, s3w_v1_MediaCommand, AUTO)
+
+
+PB_BIND(s3w_v1_MediaArtwork, s3w_v1_MediaArtwork, 4)
+
+
+PB_BIND(s3w_v1_WeatherUpdate, s3w_v1_WeatherUpdate, 2)
+
+
+PB_BIND(s3w_v1_WeatherUpdate_Current, s3w_v1_WeatherUpdate_Current, AUTO)
+
+
+PB_BIND(s3w_v1_WeatherUpdate_Hour, s3w_v1_WeatherUpdate_Hour, AUTO)
+
+
+PB_BIND(s3w_v1_WeatherUpdate_Day, s3w_v1_WeatherUpdate_Day, AUTO)
+
+
+PB_BIND(s3w_v1_CalendarUpdate, s3w_v1_CalendarUpdate, 2)
+
+
+PB_BIND(s3w_v1_CalendarUpdate_Event, s3w_v1_CalendarUpdate_Event, AUTO)
+
+
+PB_BIND(s3w_v1_AppList, s3w_v1_AppList, 4)
+
+
+PB_BIND(s3w_v1_AppList_App, s3w_v1_AppList_App, AUTO)
+
+
+PB_BIND(s3w_v1_AppInstallBegin, s3w_v1_AppInstallBegin, AUTO)
+
+
+PB_BIND(s3w_v1_AppCommand, s3w_v1_AppCommand, AUTO)
+
+
+PB_BIND(s3w_v1_HttpProxyRequest, s3w_v1_HttpProxyRequest, 4)
+
+
+PB_BIND(s3w_v1_HttpProxyResponse, s3w_v1_HttpProxyResponse, 4)
+
+
+PB_BIND(s3w_v1_TransferBegin, s3w_v1_TransferBegin, AUTO)
+
+
+PB_BIND(s3w_v1_TransferStatus, s3w_v1_TransferStatus, AUTO)
+
+
+PB_BIND(s3w_v1_TransferEnd, s3w_v1_TransferEnd, AUTO)
+
+
+PB_BIND(s3w_v1_WifiConfig, s3w_v1_WifiConfig, AUTO)
+
+
+PB_BIND(s3w_v1_WifiStatus, s3w_v1_WifiStatus, 2)
+
+
+PB_BIND(s3w_v1_HaConfig, s3w_v1_HaConfig, 2)
+
+
+PB_BIND(s3w_v1_HaConfig_Entity, s3w_v1_HaConfig_Entity, AUTO)
+
+
+PB_BIND(s3w_v1_HaCommand, s3w_v1_HaCommand, AUTO)
+
+
+PB_BIND(s3w_v1_HaStates, s3w_v1_HaStates, 2)
+
+
+PB_BIND(s3w_v1_HaStates_State, s3w_v1_HaStates_State, AUTO)
+
+
+PB_BIND(s3w_v1_ScreenshotRequest, s3w_v1_ScreenshotRequest, AUTO)
+
+
+PB_BIND(s3w_v1_LicenseInstall, s3w_v1_LicenseInstall, AUTO)
+
+
+PB_BIND(s3w_v1_LicenseStatus, s3w_v1_LicenseStatus, AUTO)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

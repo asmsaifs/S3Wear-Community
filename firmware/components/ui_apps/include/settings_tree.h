@@ -27,7 +27,6 @@ typedef enum {
 } settings_kind_t;
 
 typedef enum {
-    SETTINGS_ACT_FORGET_PHONE,
     SETTINGS_ACT_RESTART,
     SETTINGS_ACT_POWER_OFF,
     SETTINGS_ACT_FACTORY_RESET,

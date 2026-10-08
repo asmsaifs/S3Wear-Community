@@ -1,5 +1,0 @@
-# Swipe down closes notifications. Golden equals home.png.
-swipe 205 400 205 120
-wait 400
-swipe 205 120 205 400
-wait 400

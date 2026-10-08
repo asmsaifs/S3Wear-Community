@@ -1,0 +1,3 @@
+# P12-01 Community: quick settings without Wi-Fi, Flashlight and Find phone (two rows of four).
+swipe 205 120 205 400
+wait 400

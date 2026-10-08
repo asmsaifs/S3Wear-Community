@@ -12,18 +12,28 @@
 #include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_event.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "hal.h"
+#include "phone_apps.h"
 #include "settings_apps.h"
 #include "shell.h"
 #include "svc_alarm.h"
 #include "svc_audio.h"
+#include "svc_ble.h"
+#include "connect_ui.h"
+#include "activity_ui.h"
+#include "link_hello.h"
+#include "link_status.h"
+#include "link_time.h"
+#include "svc_link.h"
 #include "s3w_lvgl_port.h"
 #include "svc_diag.h"
 #include "svc_input.h"
 #include "svc_modes.h"
 #include "svc_power.h"
 #include "svc_sensors.h"
+#include "svc_activity.h"
 #include "svc_settings.h"
 #include "svc_storage.h"
 #include "svc_time.h"
@@ -37,6 +47,34 @@
 #include "watch_only.h"
 #include "wf_engine.h"
 #include "wf_shift.h"
+#include "s3w_edition.h"
+#if S3W_EDITION_PRO
+#include "app_runtime.h"
+#include "apps_link.h"
+#include "apps_ui.h"
+#include "calendar_ui.h"
+#include "call_apps.h"
+#include "call_ui.h"
+#include "find_apps.h"
+#include "find_ui.h"
+#include "flashlight_apps.h"
+#include "ha_ui.h"
+#include "media_ui.h"
+#include "memo_ui.h"
+#include "notif_ui.h"
+#include "svc_calendar.h"
+#include "svc_call.h"
+#include "svc_find.h"
+#include "svc_ha.h"
+#include "svc_license.h"
+#include "svc_media.h"
+#include "svc_memo.h"
+#include "svc_notify.h"
+#include "svc_screenshot.h"
+#include "svc_weather.h"
+#include "svc_wifi.h"
+#include "weather_ui.h"
+#endif
 
 static const char *TAG = "app_main";
 
@@ -210,7 +248,8 @@ static void show_power_menu(void)
 }
 
 // svc_input actions (docs/03 F3): BOOT = back, or the launcher on the home screen;
-// PWR = home, or screen off on the home screen, or snooze while an alarm rings;
+// PWR = home, or screen off on the home screen, or snooze while an alarm rings, or mute an
+// incoming call;
 // PWR held 2 s = power menu. SOS and the BOOT shortcut get their
 // features later (P4, P3): a toast for now.
 static void on_input_action(void *ctx, esp_event_base_t base, int32_t id, const void *data, size_t len)
@@ -230,6 +269,12 @@ static void on_input_action(void *ctx, esp_event_base_t base, int32_t id, const 
     case SVC_INPUT_ACTION_HOME:
         if (clock_apps_ring_active()) {
             clock_apps_ring_key(); // PWR snoozes a ringing alarm, stops a timer
+#if S3W_EDITION_PRO
+        } else if (find_apps_watch_active()) {
+            find_apps_watch_key(); // PWR stops "find watch"
+        } else if (call_apps_key()) {
+            // PWR muted the incoming call
+#endif
         } else if (ui_nav_depth() <= 1) {
             svc_power_screen_off();
         } else {
@@ -240,7 +285,9 @@ static void on_input_action(void *ctx, esp_event_base_t base, int32_t id, const 
         show_power_menu();
         break;
     case SVC_INPUT_ACTION_SHORTCUT:
-        ui_toast_show("Shortcut", 1500);
+#if S3W_EDITION_PRO
+        flashlight_apps_open(); // the default shortcut (docs/03 F3); BOOT short then closes it
+#endif
         break;
     case SVC_INPUT_ACTION_SOS:
         ui_toast_show("SOS", 2000);
@@ -450,26 +497,72 @@ static void on_setting(void *ctx, esp_event_base_t base, int32_t id, const void 
     }
 }
 
-// Quick settings backend (shell.h). Wi-Fi (P9) and Bluetooth (P4) join with their
-// features; until then they say "not available yet".
+// svc_ble pairing (docs/06 §8): show the code (waking the screen), send the answer back.
+static void pair_reply(bool accept, void *ctx)
+{
+    const esp_err_t err = svc_ble_pair_reply((uint16_t)(uintptr_t)ctx, accept);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "pairing reply: %s", esp_err_to_name(err)); // the link went away meanwhile
+    }
+}
+
+static void on_ble(void *ctx, esp_event_base_t base, int32_t id, const void *data, size_t len)
+{
+    (void)ctx;
+    (void)base;
+    if (id == SVC_BLE_EVT_PAIR_REQUEST && len >= sizeof(svc_ble_evt_pair_request_t)) {
+        const svc_ble_evt_pair_request_t *e = data;
+        svc_power_wake(SVC_POWER_WAKE_PAIRING);
+        phone_apps_pair_request(e->passkey, e->replaces, pair_reply, (void *)(uintptr_t)e->conn);
+    } else if (id == SVC_BLE_EVT_PAIR_DONE && len >= sizeof(svc_ble_evt_pair_done_t)) {
+        phone_apps_pair_done(((const svc_ble_evt_pair_done_t *)data)->ok);
+    }
+}
+
+#if S3W_EDITION_PRO
+// Wi-Fi's internal RAM (svc_wifi, worker task): the driver only fits with one LVGL draw buffer
+// (32 KB) given up while the radio is on; redraws are slower then (docs/02 §6).
+static void wifi_ram_hook(bool radio_on)
+{
+    if (radio_on) {
+        // Plain malloc() goes to PSRAM first while the radio is on, so nothing small and lasting
+        // lands in the freed draw buffer's space and stops it coming back (explicit internal / DMA
+        // allocations, the driver's buffers and task stacks, are not affected).
+        heap_caps_malloc_extmem_enable(0);
+    }
+    if (s3w_lvgl_port_display()) {
+        s3w_lvgl_port_set_single_buffer(radio_on);
+    }
+    if (!radio_on) {
+        heap_caps_malloc_extmem_enable(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL);
+    }
+}
+#endif
+
+// Quick settings backend (shell.h).
 static void qs_read(shell_qs_state_t *st, void *ctx)
 {
     (void)ctx;
     modes_state_t modes;
     svc_modes_get(&modes);
     st->available = (1u << SHELL_QS_DND) | (1u << SHELL_QS_THEATER) | (1u << SHELL_QS_SLEEP) |
-                    (1u << SHELL_QS_AOD) | (1u << SHELL_QS_SILENT) | (1u << SHELL_QS_SAVER);
+                    (1u << SHELL_QS_AOD) | (1u << SHELL_QS_SILENT) | (1u << SHELL_QS_SAVER) |
+                    (1u << SHELL_QS_BLUETOOTH) | (1u << SHELL_QS_WIFI);
     st->on = (modes.dnd ? 1u << SHELL_QS_DND : 0) | (modes.theater ? 1u << SHELL_QS_THEATER : 0) |
              (modes.sleep ? 1u << SHELL_QS_SLEEP : 0) |
              (svc_settings_get_bool(S3W_SETTING_AOD) ? 1u << SHELL_QS_AOD : 0) |
              (svc_settings_get_bool(S3W_SETTING_SILENT) ? 1u << SHELL_QS_SILENT : 0) |
-             (svc_power_saver() ? 1u << SHELL_QS_SAVER : 0);
+             (svc_power_saver() ? 1u << SHELL_QS_SAVER : 0) |
+             (svc_settings_get_bool(S3W_SETTING_BLUETOOTH) ? 1u << SHELL_QS_BLUETOOTH : 0) |
+             (svc_settings_get_bool(S3W_SETTING_WIFI) ? 1u << SHELL_QS_WIFI : 0);
     st->brightness = (uint8_t)svc_settings_get_int(S3W_SETTING_DISPLAY_BRIGHTNESS);
     svc_power_battery_t bat = {.percent = -1};
     svc_power_battery(&bat);
     st->battery_pct = bat.percent;
     st->charging = bat.charging;
-    st->phone_connected = false; // phone link: P4
+    svc_ble_status_t ble;
+    svc_ble_get_status(&ble);
+    st->phone_connected = ble.state == SVC_BLE_STATE_SECURED;
 }
 
 static void qs_toggle(shell_qs_item_t item, bool on, void *ctx)
@@ -495,6 +588,14 @@ static void qs_toggle(shell_qs_item_t item, bool on, void *ctx)
     case SHELL_QS_SAVER:
         err = svc_power_set_saver(on);
         break;
+    case SHELL_QS_BLUETOOTH:
+        err = svc_settings_set_bool(S3W_SETTING_BLUETOOTH, on); // svc_ble follows the setting
+        break;
+#if S3W_EDITION_PRO
+    case SHELL_QS_WIFI:
+        err = svc_wifi_set_on(on); // the WIFI setting; svc_wifi follows it
+        break;
+#endif
     default:
         break;
     }
@@ -502,6 +603,18 @@ static void qs_toggle(shell_qs_item_t item, bool on, void *ctx)
         ESP_LOGW(TAG, "quick settings %s: %s", shell_qs_name(item), esp_err_to_name(err));
     }
 }
+
+#if S3W_EDITION_PRO
+// Flashlight: full brightness while the app is open; svc_power puts the user's level back.
+static void flashlight_boost(bool on, void *ctx)
+{
+    (void)ctx;
+    const esp_err_t err = svc_power_boost_brightness(on);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "flashlight brightness: %s", esp_err_to_name(err));
+    }
+}
+#endif
 
 static void qs_brightness(uint8_t pct, void *ctx)
 {
@@ -559,8 +672,6 @@ static esp_err_t sa_action(settings_action_t action, void *ctx)
         const esp_err_t err = svc_settings_factory_reset();
         return err == ESP_OK ? svc_power_restart() : err;
     }
-    case SETTINGS_ACT_FORGET_PHONE:
-        return ESP_ERR_NOT_SUPPORTED; // the phone link is P4
     }
     return ESP_ERR_INVALID_ARG;
 }
@@ -699,10 +810,38 @@ static void on_nav_changed(void *ctx)
     }
 }
 
+#if S3W_EDITION_PRO
+// The licence was checked (UI task): lock or unlock the Pro screens; leave one that just got locked.
+static void on_license(void *ctx, esp_event_base_t base, int32_t id, const void *data, size_t len)
+{
+    (void)ctx;
+    (void)base;
+    (void)id;
+    const svc_license_evt_changed_t *e = data;
+    if (len < sizeof *e) {
+        return;
+    }
+    shell_set_pro_locked(!e->pro);
+    for (size_t i = 1; !e->pro && i < ui_nav_depth(); i++) {
+        if (shell_is_pro_screen(ui_screen_def(ui_nav_at(i))->id)) {
+            ui_nav_home();
+            break;
+        }
+    }
+}
+#endif
+
 // Peripheral bring-up failures are logged, not fatal, so the console and factory
 // test can still report which chip is missing.
+// It also logs the internal heap each step took (P10-08: the free internal heap budget is 40 KB);
+// the delta covers everything since the previous step, i.e. the call that was passed in.
 static void boot_step(const char *what, esp_err_t err)
 {
+    static size_t s_prev_free;
+    const size_t now = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    ESP_LOGI(TAG, "heap after %-12s internal free %6u (%+d)", what, (unsigned)now,
+             s_prev_free ? (int)now - (int)s_prev_free : 0);
+    s_prev_free = now;
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s failed: %s", what, esp_err_to_name(err));
     }
@@ -738,6 +877,10 @@ void app_main(void)
     boot_step("time", svc_time_start());
 
     // 5. Display + touch + LVGL, boot logo.
+#if S3W_EDITION_PRO
+    // Before the display's buffers: the Wi-Fi driver's one-time objects go to low RAM (svc_wifi.h).
+    boot_step("wifi prewarm", svc_wifi_prewarm());
+#endif
     boot_step("display", display_start());
     boot_step("touch", bsp_touch_start());
     if (bsp_touch_handle() && s3w_lvgl_port_display()) {
@@ -755,6 +898,10 @@ void app_main(void)
     // 6. Storage: LittleFS now, SD card in the background (optional).
     boot_step("flash fs", svc_storage_mount_flash());
     boot_step("sd", svc_storage_start());
+#if S3W_EDITION_PRO
+    // Pro licence (P12-02): /flash/license.bin checked on the worker; the shell follows the result.
+    boot_step("license", svc_license_start());
+#endif
 
     // 7. Services. svc_modes: DND / sleep / theater (svc_power and svc_sensors read
     // it at start). svc_power: screen states, light sleep, battery. svc_input:
@@ -764,13 +911,54 @@ void app_main(void)
     boot_step("power", svc_power_start());
     boot_step("input", svc_input_start());
     boot_step("sensors", svc_sensors_start());
+    // svc_activity: steps from svc_sensors' FIFO, distance, kcal, goals (after settings, time,
+    // worker and sensors).
+    boot_step("activity", svc_activity_start());
     // svc_audio: system sounds (after settings, modes and power events); svc_alarm rings through it.
     boot_step("sounds", svc_audio_start());
     // svc_alarm: alarms, timers, ringing (after time, power and sensors).
     boot_step("alarm", svc_alarm_start());
+    // svc_ble: advertising, pairing, bonds, Battery + Device Information (after power: battery level).
+    boot_step("ble", svc_ble_start());
+    // svc_link: frames, requests, bulk transfers over svc_ble (handlers register from their own services).
+    boot_step("link", svc_link_start());
+#if S3W_EDITION_PRO
+    boot_step("license link", svc_license_link_start()); // LicenseInstall (P12-03)
+#endif
+    boot_step("hello", link_hello_register());
+    // Session start (P4-06): TimeSync from the phone, DeviceStatus back (and on battery changes).
+    boot_step("time sync", link_time_register());
+    boot_step("status", link_status_register());
+#if S3W_EDITION_PRO // phone services, Wi-Fi, memos, screenshots: Pro only (docs/10 §3)
+    // Notifications from the phone (P4-07): store, alerts, icons, actions.
+    boot_step("notify", svc_notify_start());
+    // Find phone / find watch (P4-08).
+    boot_step("find", svc_find_start());
+    // Media control (P6-01).
+    boot_step("media", svc_media_start());
+    // Weather from the phone (P6-02).
+    boot_step("weather", svc_weather_start());
+    // Calendar agenda from the phone (P6-03).
+    boot_step("calendar", svc_calendar_start());
+    // Call alerts and control (P6-04).
+    boot_step("call", svc_call_start());
+    // Wi-Fi (P9-01): saved networks, provisioning from the phone, SNTP; radio only when switched on.
+    svc_wifi_set_ram_hook(wifi_ram_hook);
+    boot_step("wifi", svc_wifi_start());
+    // Home Assistant tiles (P9-05): configuration from the phone; calls over Wi-Fi or the phone.
+    boot_step("ha", svc_ha_start());
+    // Voice memos (P7-01): record / play / delete, upload to the phone (after storage, sounds and link).
+    boot_step("memo", svc_memo_start());
+    // Screenshot to the phone on request (P8-19).
+    boot_step("screenshot", svc_screenshot_start());
+#endif
 
     // Diagnostics console (USB-Serial-JTAG).
     ESP_ERROR_CHECK(svc_diag_console_start());
+#if S3W_EDITION_PRO // installable mini apps and games: Pro only (docs/10 §3)
+    // Mini app runtime (P8-01): WAMR and its task start with the first app, not here.
+    boot_step("apps", app_runtime_start());
+#endif
 
     // 9. Home screen: the watch face, and the shell around it.
     if (s3w_lvgl_port_display()) {
@@ -785,6 +973,11 @@ void app_main(void)
         wf_set_listener(on_face_changed, NULL);
         // Quick settings, notifications, tiles, launcher around the face (P3-06).
         shell_init();
+#if S3W_EDITION_PRO
+        shell_set_pro_locked(!svc_license_is_pro()); // the boot check may still run: SVC_LICENSE_EVENT
+        const flashlight_backend_t fl = {.boost = flashlight_boost};
+        flashlight_apps_set_backend(&fl);
+#endif
         const shell_qs_backend_t qs = {.read = qs_read, .toggle = qs_toggle, .brightness = qs_brightness};
         shell_qs_set_backend(&qs);
         shell_launcher_set_grid(svc_settings_get_bool(S3W_SETTING_LAUNCHER_GRID));
@@ -817,6 +1010,37 @@ void app_main(void)
         // Battery app, charging screen, low-battery flows (P3-09).
         const battery_backend_t battery = {.read = ba_read, .set_saver = ba_saver, .watch_only = ba_watch_only};
         battery_apps_set_backend(&battery);
+#if S3W_EDITION_PRO
+        // Notification list, detail and banner over svc_notify (P4-07).
+        notif_ui_start();
+        // Find phone app and the find-watch screen over svc_find (P4-08).
+        find_ui_start();
+        // Media app and tile over svc_media (P6-01).
+        media_ui_start();
+        // Weather app, and the weather on faces and the tile, over svc_weather (P6-02).
+        weather_ui_start();
+        // Calendar app, and the next event on faces and the tile, over svc_calendar (P6-03).
+        calendar_ui_start();
+        // Incoming-call and call screens, Calls app, over svc_call (P6-04).
+        call_ui_start();
+#endif
+        // Settings > Connections: Bluetooth switch, phone link state, last sync (P4-09).
+        connect_ui_start();
+#if S3W_EDITION_PRO
+        // Home app and tile over svc_ha (P9-05).
+        ha_ui_start();
+        // Voice memos app over svc_memo (P7-01).
+        memo_ui_start();
+#endif
+        // Today's steps on faces and complications over svc_activity (P5-01).
+        activity_ui_start();
+#if S3W_EDITION_PRO
+        // The phone's app store: app list, installs over BLE, uninstalls (P8-09). Before app_manager,
+        // whose listener forwards to it.
+        boot_step("apps link", apps_link_start());
+        // Installed mini apps: launcher entries, install consent, uninstall (P8-05).
+        boot_step("app manager", apps_ui_start());
+#endif
         svc_power_battery_t bat;
         if (svc_power_battery(&bat) == ESP_OK) {
             on_battery(NULL, NULL, 0, &bat, sizeof bat);
@@ -831,6 +1055,12 @@ void app_main(void)
         s3w_ui_subscribe(SVC_POWER_EVENT, SVC_POWER_EVT_STATE, on_power_state, NULL, NULL);
         s3w_ui_subscribe(SVC_SETTINGS_EVENT, ESP_EVENT_ANY_ID, on_setting, NULL, NULL);
         s3w_ui_subscribe(SVC_ALARM_EVENT, ESP_EVENT_ANY_ID, on_alarm, NULL, NULL);
+        s3w_ui_subscribe(SVC_BLE_EVENT, ESP_EVENT_ANY_ID, on_ble, NULL, NULL);
+#if S3W_EDITION_PRO
+        s3w_ui_subscribe(SVC_LICENSE_EVENT, SVC_LICENSE_EVT_CHANGED, on_license, NULL, NULL);
+        // The boot check may have finished before the subscription.
+        shell_set_pro_locked(!svc_license_is_pro());
+#endif
         // An alarm that started ringing during boot (deep-sleep wake) before the
         // subscription: show it now (a second RING event for it is ignored).
         svc_alarm_evt_ring_t ring;

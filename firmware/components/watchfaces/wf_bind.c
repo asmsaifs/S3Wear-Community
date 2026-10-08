@@ -75,7 +75,8 @@ static const key_info_t KEYS[K_COUNT] = {
 static const char *const WEEKDAY[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 static const char *const MONTH[12] = {"January", "February", "March",     "April",   "May",      "June",
                                       "July",    "August",   "September", "October", "November", "December"};
-static const char *const CONDITION[WF_WEATHER_COUNT] = {"Clear", "Cloudy", "Rain", "Snow", "Storm", "Fog"};
+static const char *const CONDITION[WF_WEATHER_COUNT] = {"Clear", "Cloudy", "Rain", "Snow", "Storm", "Fog",
+                                                               "Partly cloudy"};
 
 // --- Formatters ------------------------------------------------------------------------
 
@@ -309,10 +310,10 @@ bool wf_bind_value(const wf_bind_t *b, const wf_ctx_t *ctx, int32_t *out)
         return d->weather_valid;
     case K_WEATHER_LOW:
         *out = d->temp_lo_c;
-        return d->weather_valid;
+        return d->weather_range;
     case K_WEATHER_HIGH:
         *out = d->temp_hi_c;
-        return d->weather_valid;
+        return d->weather_range;
     case K_WEATHER_CONDITION:
         *out = d->weather;
         return d->weather_valid && d->weather < WF_WEATHER_COUNT;

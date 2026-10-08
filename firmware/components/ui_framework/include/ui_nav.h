@@ -74,6 +74,11 @@ void ui_nav_set_home_swipe(lv_dir_t dir, const screen_def_t *def);
  *  the top screen or under a full-screen alert. */
 bool ui_nav_home_swipe(lv_dir_t dir);
 
+/** Gate on every push (Pro licence, docs/10 §4): returns the screen to push instead of def
+ *  (args are then dropped), def itself, or NULL to refuse (ESP_ERR_NOT_SUPPORTED). One gate;
+ *  NULL removes it. */
+void ui_nav_set_gate(const screen_def_t *(*gate)(const screen_def_t *def));
+
 /** Push a screen registered with ui_nav_register(); ESP_ERR_NOT_FOUND if unknown. */
 esp_err_t ui_nav_push_id(const char *id, const void *args);
 
@@ -140,7 +145,7 @@ void ui_clock_bind_unknown(lv_obj_t *obj, bool show_when_unknown);
  *  active (one wake-up per minute). Unbinds itself when the label is deleted. */
 void ui_clock_bind_label(lv_obj_t *label);
 /** cb(ctx) runs after every clock re-render: the minute tick, display on, a format or
- *  "time valid" change and ui_clock_refresh(). Up to 4 listeners (watch faces). */
+ *  "time valid" change and ui_clock_refresh(). Up to 8 listeners (watch faces, weather, calendar, clock apps, tiles). */
 esp_err_t ui_clock_add_listener(void (*cb)(void *ctx), void *ctx);
 void ui_clock_remove_listener(void (*cb)(void *ctx), void *ctx);
 

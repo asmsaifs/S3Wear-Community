@@ -1,0 +1,10 @@
+{
+  "callState": {
+    "callId": 8,
+    "state": 2,
+    "number": "+8801711000333",
+    "sinceMs": "1791021645000",
+    "canControl": true,
+    "outgoing": true
+  }
+}

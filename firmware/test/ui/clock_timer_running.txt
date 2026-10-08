@@ -1,7 +1,0 @@
-# Two timers, the second one paused.
-timer 300
-timer 90
-push timer
-wait 1500
-tap 270 256   # pause the 1:30 timer
-wait 300

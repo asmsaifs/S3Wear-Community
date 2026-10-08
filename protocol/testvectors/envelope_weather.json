@@ -1,0 +1,59 @@
+{
+  "weather": {
+    "fetchedMs": "1791021720000",
+    "location": "Dhaka",
+    "current": {
+      "tempDc": 312,
+      "feelsDc": 365,
+      "condition": 6,
+      "isDay": true,
+      "humidityPct": 74,
+      "windKmh": 11,
+      "uvX10": 42,
+      "aqi": 87
+    },
+    "hourly": [
+      {
+        "time": 1791021600,
+        "tempDc": 312,
+        "condition": 6,
+        "isDay": true,
+        "precipPct": 10
+      },
+      {
+        "time": 1791025200,
+        "tempDc": 305,
+        "condition": 2,
+        "isDay": true,
+        "precipPct": 65
+      },
+      {
+        "time": 1791028800,
+        "tempDc": -15,
+        "condition": 4,
+        "precipPct": 80
+      }
+    ],
+    "daily": [
+      {
+        "date": 20261003,
+        "loDc": 262,
+        "hiDc": 324,
+        "condition": 2,
+        "precipPct": 70,
+        "sunrise": 1790984820,
+        "sunset": 1791027660,
+        "uvMaxX10": 78
+      },
+      {
+        "date": 20261004,
+        "loDc": -48,
+        "hiDc": 318,
+        "condition": 0,
+        "sunrise": 1791071280,
+        "sunset": 1791114000,
+        "uvMaxX10": 81
+      }
+    ]
+  }
+}

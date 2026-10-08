@@ -9,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "nvs.h"
+#include "s3w_event.h"
+#include "svc_ble.h"
 #include "svc_diag.h"
 #include "svc_power.h"
 #include "svc_worker.h"
@@ -79,6 +81,18 @@ static void sample_drain(void)
     }
 }
 
+// A BLE link went down: reason and how long it was up (docs/02 §11).
+static void on_ble_disconnected(void *ctx, esp_event_base_t base, int32_t id, const void *data, size_t len)
+{
+    (void)ctx;
+    (void)base;
+    (void)id;
+    if (len >= sizeof(svc_ble_evt_disconnected_t)) {
+        const svc_ble_evt_disconnected_t *e = data;
+        svc_diag_metric_record(METRIC_BLE_DISCONNECT, e->reason, e->seconds);
+    }
+}
+
 static void flush_timer_cb(void *arg)
 {
     (void)arg;
@@ -116,6 +130,8 @@ esp_err_t svc_diag_metrics_start(void)
     esp_timer_handle_t t;
     ESP_RETURN_ON_ERROR(esp_timer_create(&args, &t), TAG, "timer");
     ESP_RETURN_ON_ERROR(esp_timer_start_periodic(t, FLUSH_PERIOD_US), TAG, "timer start");
+    ESP_RETURN_ON_ERROR(s3w_event_subscribe(SVC_BLE_EVENT, SVC_BLE_EVT_DISCONNECTED, on_ble_disconnected, NULL, NULL),
+                        TAG, "ble");
     return svc_diag_metrics_flush();
 }
 

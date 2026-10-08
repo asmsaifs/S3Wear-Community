@@ -1,0 +1,3 @@
+# P12-01 Community: tiles are Activity and Timer only (two page dots).
+swipe 350 250 60 250
+wait 400

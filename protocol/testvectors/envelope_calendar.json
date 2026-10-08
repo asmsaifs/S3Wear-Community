@@ -1,0 +1,29 @@
+{
+  "calendar": {
+    "syncedMs": "1791021660000",
+    "events": [
+      {
+        "id": 101,
+        "title": "Design review",
+        "start": 1791023400,
+        "end": 1791027000,
+        "location": "Room 4B",
+        "color": 4359668
+      },
+      {
+        "id": 102,
+        "title": "Durga Puja",
+        "start": 1791050400,
+        "end": 1791136800,
+        "allDay": true,
+        "color": 3389049
+      },
+      {
+        "id": 103,
+        "title": "Flight to Chittagong",
+        "start": 1791079200,
+        "end": 1791082800
+      }
+    ]
+  }
+}

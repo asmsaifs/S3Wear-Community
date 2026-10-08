@@ -5,6 +5,7 @@
 
 #include "esp_console.h"
 #include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -49,7 +50,8 @@ static int cmd_tasks(int argc, char **argv)
         return 1;
     }
     const UBaseType_t got = uxTaskGetSystemState(st, n, NULL);
-    printf("%-16s %-5s %4s %4s %10s\n", "task", "state", "prio", "core", "stack free");
+    printf("%-16s %-5s %4s %4s %10s %8s %s\n", "task", "state", "prio", "core", "stack free", "stack", "in");
+    unsigned long internal_stacks = 0;
     for (UBaseType_t i = 0; i < got; i++) {
         char core[4] = "-";
 #if CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID
@@ -58,9 +60,15 @@ static int cmd_tasks(int argc, char **argv)
         }
 #endif
         // High-water mark is in StackType_t words (bytes on Xtensa ESP-IDF).
-        printf("%-16s %-5s %4u %4s %8lu B\n", st[i].pcTaskName, state_name(st[i].eCurrentState),
-               (unsigned)st[i].uxCurrentPriority, core, (unsigned long)st[i].usStackHighWaterMark);
+        // The stack size is what the heap gave the stack (0: not from the heap, e.g. the IDLE tasks).
+        const unsigned long size = (unsigned long)heap_caps_get_allocated_size(st[i].pxStackBase);
+        const bool ext = esp_ptr_external_ram(st[i].pxStackBase);
+        internal_stacks += ext ? 0 : size;
+        printf("%-16s %-5s %4u %4s %8lu B %6lu B %s\n", st[i].pcTaskName, state_name(st[i].eCurrentState),
+               (unsigned)st[i].uxCurrentPriority, core, (unsigned long)st[i].usStackHighWaterMark, size,
+               ext ? "PSRAM" : "internal");
     }
+    printf("stacks in internal RAM: %lu B\n", internal_stacks);
     printf("%u tasks\n", (unsigned)got);
     free(st);
     return 0;

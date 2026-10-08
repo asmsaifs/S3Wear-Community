@@ -1,0 +1,5 @@
+# P12-01 Community: the second and last tile, Timer.
+swipe 350 250 60 250
+wait 400
+swipe 350 250 60 250
+wait 400

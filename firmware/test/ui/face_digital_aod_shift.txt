@@ -1,8 +1,0 @@
-# AOD burn-in shift (P3-05): the face moves one step a minute within ±4 px. Entered at
-# 10:09 (offset +4,+2), then the minute changes to 10:21 (offset +2,-4) while in AOD.
-face digital
-aod on
-wait 100
-time 10:21
-wait 100
-lit 10

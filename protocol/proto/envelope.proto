@@ -23,6 +23,37 @@ message Envelope {
     HelloAck hello_ack = 11;
     TimeSync time_sync = 12;
     Ack ack = 13;
+    DeviceStatus device_status = 14;
+    NotificationPosted notif_posted = 20;
+    NotificationRemoved notif_removed = 21;
+    NotificationAction notif_action = 22;
+    AppIcon app_icon = 23;
+    TextBitmap text_bitmap = 24;
+    CallState call_state = 30;
+    CallCommand call_command = 31;
+    MediaState media_state = 40;
+    MediaCommand media_command = 41;
+    MediaArtwork media_artwork = 42;
+    TextBitmap media_text_bitmap = 43;
+    WeatherUpdate weather = 50;
+    CalendarUpdate calendar = 51;
+    FindDevice find = 70;
+    AppList app_list = 90;
+    AppInstallBegin app_install = 91;
+    AppCommand app_cmd = 92;
+    HttpProxyRequest http_req = 96;
+    HttpProxyResponse http_resp = 97;
+    TransferBegin xfer_begin = 100;
+    TransferStatus xfer_status = 101;
+    TransferEnd xfer_end = 102;
+    WifiConfig wifi_config = 120;
+    WifiStatus wifi_status = 121;
+    HaConfig ha_config = 140;
+    HaCommand ha_command = 141;
+    HaStates ha_states = 142;
+    ScreenshotRequest screenshot = 160;
+    LicenseInstall license_install = 180;
+    LicenseStatus license_status = 181;
   }
 }
 
@@ -79,3 +110,530 @@ message TimeSync {
 
 // Reply body for requests that return no data; the outcome is Envelope.status.
 message Ack {}
+
+// Watch → phone event: after each TimeSync (session start) and whenever the
+// battery level, charging or USB power changes while the link is up.
+message DeviceStatus {
+  uint32 battery_pct = 1;      // 0-100
+  bool charging = 2;
+  bool usb_power = 3;          // VBUS present (charging or full)
+  uint32 storage_free_kb = 4;  // internal flash file system
+  uint32 storage_total_kb = 5;
+  bool time_valid = 6;         // false: the watch shows "--:--"
+}
+
+// Values for NotificationPosted.category. A plain uint32 on the wire, like
+// TransferBegin.kind: a category unknown to the watch shows as OTHER.
+enum NotificationCategory {
+  NOTIF_OTHER = 0;
+  NOTIF_MSG = 1;
+  NOTIF_EMAIL = 2;
+  NOTIF_SOCIAL = 3;
+  NOTIF_CALL = 4;
+  NOTIF_ALARM = 5;
+  NOTIF_EVENT = 6;
+  NOTIF_PROMO = 7;
+  NOTIF_SYSTEM = 8;
+}
+
+// Phone → watch event: a notification was posted or updated (same nid = update).
+message NotificationPosted {
+  // One button the watch shows under the text.
+  message Action {
+    uint32 id = 1;     // index on the phone; echoed in NotificationAction.action_id
+    string title = 2;  // ≤ 31 bytes
+    bool is_reply = 3; // needs text (quick replies, P6-05); the watch hides it until then
+  }
+  uint32 nid = 1;            // phone-assigned, stable for the notification's key; non-zero
+  string app_id = 2;         // package name, ≤ 127 bytes
+  string app_name = 3;       // ≤ 63 bytes
+  uint32 icon_hash = 4;      // the watch asks for an AppIcon it does not have; 0 = no icon
+  string title = 5;          // ≤ 128 bytes
+  string text = 6;           // ≤ 1024 bytes
+  int64 when_ms = 7;         // Unix ms
+  uint32 category = 8;       // NotificationCategory
+  repeated Action actions = 9; // ≤ 3
+  bool silent = 10;          // an update that must not sound, wake or show a banner
+  uint32 text_bitmap_id = 11; // non-zero: TextBitmap strips with this id follow (glyphs the watch lacks)
+}
+
+// Phone → watch event: the notification is gone from the phone.
+message NotificationRemoved {
+  uint32 nid = 1;
+}
+
+// Watch → phone: the user tapped an action (a request; the reply's status says whether the
+// phone could run it) or dismissed the notification (dismiss = true; an event).
+message NotificationAction {
+  uint32 nid = 1;
+  uint32 action_id = 2;    // NotificationPosted.Action.id; ignored with dismiss
+  string reply_text = 3;   // ≤ 255 bytes; for is_reply actions (P6-05)
+  bool dismiss = 4;
+}
+
+// App icon (docs/06 §5). Watch → phone request with only icon_hash set; the phone replies
+// with the pixels, or STATUS_INVALID if it no longer knows the hash.
+message AppIcon {
+  uint32 icon_hash = 1;
+  uint32 width = 2;   // 48
+  uint32 height = 3;  // 48
+  bytes pixels = 4;   // RGB565A8: width×height RGB565 little-endian, then width×height alpha; ≤ 6912 bytes
+}
+
+// Phone → watch event: one horizontal strip of a notification's title and text rendered on the
+// phone (text_bitmap_id), for scripts the watch fonts lack. Strips arrive in order, top first.
+// As Envelope.media_text_bitmap: a media session's title (white) and artist (dimmer) on one
+// line each, 330 px wide, ≤ 80 px high (MediaState.text_bitmap_id).
+message TextBitmap {
+  uint32 bitmap_id = 1; // NotificationPosted.text_bitmap_id
+  uint32 width = 2;     // px, even, ≤ 360
+  uint32 height = 3;    // px of the whole bitmap, ≤ 400
+  uint32 y = 4;         // first row of this strip
+  bytes pixels = 5;     // 4 bpp coverage, two pixels per byte (high nibble first), rows of width / 2 bytes; ≤ 8192 bytes
+}
+
+// Values for FindDevice.target. A plain uint32 on the wire, like TransferBegin.kind.
+enum FindTarget {
+  FIND_WATCH = 0;
+  FIND_PHONE = 1;
+}
+
+// Find my phone / find my watch (docs/06 §4 "Find"). To the device that rings: a request,
+// ring = true starts it (reply Ack; it stops by itself after 60 s), ring = false stops it.
+// From the device that rings: an event with ring = false when it stopped on its own (the user
+// stopped it there, or the 60 s ran out), so the other side's screen follows.
+message FindDevice {
+  uint32 target = 1; // FindTarget: the device that rings
+  bool ring = 2;
+}
+
+// Values for CallState.state. A plain uint32 on the wire, like TransferBegin.kind.
+enum CallPhase {
+  CALL_IDLE = 0;    // no call: the call in call_id has ended
+  CALL_RINGING = 1; // an incoming call rings
+  CALL_ACTIVE = 2;  // answered, or dialled on the phone (off hook)
+}
+
+// Phone → watch event: the phone's call (docs/06 §4 "Calls"). Sent when a call starts ringing,
+// is answered or dialled, ends, and when the caller's name or number becomes known; at session
+// start only while a call is on. Audio stays on the phone.
+message CallState {
+  uint32 call_id = 1;    // phone-assigned, non-zero, new for every call; IDLE: the call that ended
+  uint32 state = 2;      // CallPhase
+  string name = 3;       // contact name, ≤ 63 bytes; empty = not a contact, or no contacts access
+  string number = 4;     // ≤ 31 bytes; empty = withheld or unknown
+  int64 since_ms = 5;    // Unix ms the state began (ACTIVE: when answered, for the call timer)
+  bool missed = 6;       // IDLE: the call rang and was not answered or declined from the watch
+  bool can_control = 7;  // the phone may answer and end calls (the user allowed it)
+  bool outgoing = 8;     // ACTIVE: dialled on the phone
+}
+
+// Values for CallCommand.cmd. A plain uint32 on the wire: the phone answers a command it does
+// not know with STATUS_INVALID.
+enum CallCmd {
+  CALL_ANSWER = 0;  // RINGING
+  CALL_DECLINE = 1; // RINGING
+  CALL_SILENCE = 2; // RINGING: stop the phone's ringtone; the call keeps ringing
+  CALL_END = 3;     // ACTIVE (hang up)
+}
+
+// Watch → phone request: control the call. The reply's status: OK; INVALID (call_id is not the
+// current call, or the command does not fit its state); DENIED (the user did not allow call
+// control on the phone). The phone sends a new CallState with the result.
+message CallCommand {
+  uint32 call_id = 1; // CallState.call_id
+  uint32 cmd = 2;     // CallCmd
+}
+
+// Values for MediaCommand.cmd. A plain uint32 on the wire, like TransferBegin.kind: the phone
+// answers a command it does not know with STATUS_INVALID.
+enum MediaCmd {
+  MEDIA_PLAY = 0;
+  MEDIA_PAUSE = 1;
+  MEDIA_NEXT = 2;
+  MEDIA_PREV = 3;
+  MEDIA_VOL_UP = 4;
+  MEDIA_VOL_DOWN = 5;
+  MEDIA_SET_VOL = 6; // value = volume, 0..volume_max
+  MEDIA_SEEK = 7;    // value = position in ms
+}
+
+// Phone → watch event: the media session the phone controls (docs/06 §4 "Media"). Sent at
+// session start and whenever something the watch shows changes (not for the position moving on
+// while playing; the watch advances it itself). app empty = no media session on the phone.
+message MediaState {
+  string app = 1;           // player name, ≤ 63 bytes; empty = nothing to control
+  string title = 2;         // ≤ 128 bytes
+  string artist = 3;        // ≤ 128 bytes
+  string album = 4;         // ≤ 128 bytes
+  bool playing = 5;
+  uint32 position_ms = 6;   // when sent; while playing the watch adds the time since it arrived
+  uint32 duration_ms = 7;   // 0 = unknown (a live stream)
+  uint32 volume = 8;        // the player's volume on the phone, 0..volume_max
+  uint32 volume_max = 9;    // 0 = volume cannot be changed
+  uint32 artwork_hash = 10; // MediaArtwork to ask for; 0 = no artwork
+  // Non-zero: title and artist drawn on the phone follow as media_text_bitmap strips with this
+  // bitmap_id (glyphs the watch fonts lack; only to a watch with "media.bitmap_text").
+  uint32 text_bitmap_id = 11;
+}
+
+// Watch → phone request: control the media session. The reply's status: OK, or INVALID (no
+// session, or the player cannot do it). The phone sends a new MediaState with the result.
+message MediaCommand {
+  uint32 cmd = 1;   // MediaCmd
+  uint32 value = 2; // MEDIA_SET_VOL: volume; MEDIA_SEEK: position ms
+}
+
+// Album art (docs/06 §4 "Media"). Watch → phone request with only artwork_hash set; the phone
+// replies with the picture, or STATUS_INVALID if it no longer has that hash.
+message MediaArtwork {
+  uint32 artwork_hash = 1; // CRC-32 of jpeg (1 if 0)
+  uint32 width = 2;        // 120
+  uint32 height = 3;       // 120
+  bytes jpeg = 4;          // baseline JPEG (not progressive), ≤ 8192 bytes
+}
+
+// Values for the weather condition fields. A plain uint32 on the wire, like TransferBegin.kind: a
+// condition unknown to the watch shows as cloudy. The phone maps its source's codes to these
+// (Open-Meteo WMO codes: docs/07 §4 "Weather").
+enum WeatherCondition {
+  WEATHER_CLEAR = 0;
+  WEATHER_CLOUDY = 1;        // overcast
+  WEATHER_RAIN = 2;          // drizzle, rain, showers
+  WEATHER_SNOW = 3;          // snow, snow showers, sleet
+  WEATHER_STORM = 4;         // thunderstorm
+  WEATHER_FOG = 5;
+  WEATHER_PARTLY_CLOUDY = 6; // mainly clear, partly cloudy
+}
+
+// Phone → watch event: the forecast for the phone's place (docs/06 §4 "Weather"). Sent at session
+// start (the last one fetched) and after every fetch. Temperatures are in tenths of a degree
+// Celsius; the watch converts for display.
+message WeatherUpdate {
+  // Conditions now.
+  message Current {
+    sint32 temp_dc = 1;       // 0.1 °C
+    sint32 feels_dc = 2;      // apparent temperature, 0.1 °C
+    uint32 condition = 3;     // WeatherCondition
+    bool is_day = 4;          // between sunrise and sunset (sun or moon icon)
+    uint32 humidity_pct = 5;  // 0-100
+    uint32 wind_kmh = 6;
+    uint32 uv_x10 = 7;        // UV index × 10
+    uint32 aqi = 8;           // US AQI; 0 = not available
+  }
+  // One hour of the forecast.
+  message Hour {
+    uint32 time = 1;          // Unix seconds, start of the hour
+    sint32 temp_dc = 2;       // 0.1 °C
+    uint32 condition = 3;     // WeatherCondition
+    bool is_day = 4;
+    uint32 precip_pct = 5;    // chance of precipitation, 0-100
+  }
+  // One day of the forecast.
+  message Day {
+    uint32 date = 1;          // yyyymmdd, the local date at the place
+    sint32 lo_dc = 2;         // 0.1 °C
+    sint32 hi_dc = 3;         // 0.1 °C
+    uint32 condition = 4;     // WeatherCondition
+    uint32 precip_pct = 5;    // highest chance of precipitation, 0-100
+    uint32 sunrise = 6;       // Unix seconds; 0 = none that day (polar night or day)
+    uint32 sunset = 7;        // Unix seconds; 0 = none
+    uint32 uv_max_x10 = 8;    // highest UV index × 10
+  }
+  int64 fetched_ms = 1;       // Unix ms when the phone got the forecast; > 0
+  string location = 2;        // place name, ≤ 63 bytes; empty = unknown
+  Current current = 3;
+  repeated Hour hourly = 4;   // ≤ 24, ascending, from the hour fetched_ms falls in
+  repeated Day daily = 5;     // ≤ 7, ascending, from the day fetched_ms falls in
+}
+
+// Phone → watch event: the phone's agenda for the next 48 hours (docs/06 §4 "Calendar"). Sent at
+// session start and whenever it changes (an event added, moved or removed, or one entering the
+// window). Replaces the watch's whole list.
+message CalendarUpdate {
+  // One occurrence of an event.
+  message Event {
+    uint32 id = 1;        // stable for the occurrence (event and start), non-zero
+    string title = 2;     // ≤ 63 bytes
+    uint32 start = 3;     // Unix seconds; an all-day event: local midnight of its first day
+    uint32 end = 4;       // Unix seconds, ≥ start; all-day: local midnight after its last day
+    bool all_day = 5;
+    string location = 6;  // ≤ 47 bytes
+    uint32 color = 7;     // 0xRRGGBB of the calendar or event; 0 = default
+  }
+  int64 synced_ms = 1;      // Unix ms when the phone read its calendar; > 0
+  repeated Event events = 2; // ≤ 16, by start: not ended at synced_ms, starting within 48 h
+}
+
+// Mini apps on the watch (docs/05 §7, docs/06 §4 "Apps", P8-09).
+//
+// Phone → watch request with no apps: the watch replies with its list. Watch → phone event: the
+// list changed (an install, update or uninstall, from either side). Preinstalled apps come first.
+message AppList {
+  message App {
+    string id = 1;        // reverse-DNS, ≤ 47 bytes
+    string name = 2;      // ≤ 31 bytes
+    string version = 3;   // MAJOR.MINOR.PATCH, ≤ 15 bytes
+    string category = 4;  // "app" | "game" | "tool" | "health", ≤ 7 bytes
+    bool system = 5;      // preinstalled: cannot be uninstalled or updated
+  }
+  repeated App apps = 1;       // ≤ 64
+  uint32 storage_free_kb = 2;  // the watch's flash file system
+  uint32 api_level = 3;        // the highest mini app API level the firmware runs
+}
+
+// Phone → watch request before the package's TRANSFER_APP: the watch checks it can take it
+// (STATUS_OK) or refuses: BUSY (another install, uninstall or transfer runs), NO_SPACE, DENIED (a
+// preinstalled app's id), INVALID (bad id, size, sha256). The transfer that follows must carry the
+// same sha256; the install's outcome comes as an AppCommand APP_CMD_RESULT event.
+message AppInstallBegin {
+  string app_id = 1;   // ≤ 47 bytes
+  string version = 2;  // ≤ 15 bytes
+  uint32 size = 3;     // package bytes, ≤ 4 MB
+  bytes sha256 = 4;    // 32 bytes, of the package
+}
+
+// Values for AppCommand.cmd. A plain uint32 on the wire, like TransferBegin.kind.
+enum AppCmd {
+  APP_CMD_UNINSTALL = 0;  // phone → watch request: remove app_id and its data
+  APP_CMD_RESULT = 1;     // watch → phone event: an install or uninstall of app_id ended
+}
+
+// APP_CMD_UNINSTALL: a request; the reply's status says whether it started (INVALID: not
+// installed, DENIED: preinstalled, BUSY). The outcome follows as APP_CMD_RESULT.
+// APP_CMD_RESULT: an event after every install or uninstall the phone or the watch started.
+// result OK, or the failure: DENIED = the user declined on the watch, INVALID = the package
+// failed its checks, NO_SPACE, INTERNAL; result.message is the watch's reason (for logs).
+message AppCommand {
+  uint32 cmd = 1;      // AppCmd
+  string app_id = 2;   // ≤ 47 bytes
+  bool install = 3;    // RESULT: of an install (else an uninstall)
+  Status result = 4;   // RESULT
+  string version = 5;  // RESULT of an install: the version now installed, ≤ 15 bytes
+}
+
+// Values for HttpProxyRequest.method. A plain uint32 on the wire, like TransferBegin.kind.
+enum HttpMethod {
+  HTTP_GET = 0;
+  HTTP_POST = 1;
+}
+
+// Values for HttpProxyResponse.error.
+enum HttpError {
+  HTTP_ERR_NONE = 0;
+  HTTP_ERR_NETWORK = 1;  // no connection, DNS, TLS, refused
+  HTTP_ERR_TIMEOUT = 2;  // no complete answer within the phone's timeout
+  HTTP_ERR_DENIED = 3;   // the phone refuses (proxy off, scheme or address not allowed)
+  HTTP_ERR_INVALID = 4;  // bad URL or method
+}
+
+// Watch → phone event: a mini app's HTTP request (docs/05 §4 `phone.http`, docs/06 §4 "HTTP
+// proxy"). The watch has checked the app's permission and domain allowlist. The phone answers
+// with HttpProxyResponse events carrying the same request_id.
+message HttpProxyRequest {
+  uint32 request_id = 1;    // watch-assigned, non-zero
+  string app_id = 2;        // ≤ 47 bytes, for the phone's log
+  uint32 method = 3;        // HttpMethod
+  string url = 4;           // http:// or https://, ≤ 511 bytes
+  string content_type = 5;  // POST body type, ≤ 63 bytes
+  bytes body = 6;           // POST body, ≤ 4096 bytes
+  uint32 max_bytes = 7;     // response body cap, 1..65536: the phone sends at most this much
+}
+
+// Phone → watch event: one part of the answer to an HttpProxyRequest, in order of offset. The
+// last part has last = true; an error comes as a single part with error != 0 and last = true.
+message HttpProxyResponse {
+  uint32 request_id = 1;
+  uint32 status = 2;      // HTTP status code; 0 with an error
+  uint32 error = 3;       // HttpError
+  uint32 offset = 4;      // position of body in the whole response body
+  bytes body = 5;         // ≤ 8192 bytes
+  bool last = 6;
+  uint32 total = 7;       // response body bytes in all (≤ max_bytes); the same on every part
+  bool truncated = 8;     // the server's body was longer than max_bytes
+}
+
+// Values for TransferBegin.kind. A plain uint32 on the wire so a kind unknown to
+// an older peer is still delivered (the receiver answers UNSUPPORTED).
+enum TransferKind {
+  TRANSFER_APP = 0;
+  TRANSFER_FACE = 1;
+  TRANSFER_OTA = 2;
+  TRANSFER_MEMO_UP = 3;
+  TRANSFER_COREDUMP_UP = 4;
+  TRANSFER_WALLPAPER = 5;
+  TRANSFER_ASSET = 6;
+  TRANSFER_SCREENSHOT_UP = 7;
+}
+
+// Starts a bulk transfer (docs/06 §6); a request, answered with TransferStatus.
+message TransferBegin {
+  uint32 transfer_id = 1;
+  uint32 kind = 2;        // TransferKind
+  uint32 size = 3;        // bytes
+  bytes sha256 = 4;       // 32 bytes; also the resume key
+  string name = 5;        // ≤ 63 bytes
+  uint32 window = 6;      // chunks per ack, 1..64
+  uint32 chunk_size = 7;  // data bytes per chunk
+}
+
+// Window ack and resume point: the receiver has every byte below next_offset.
+// As the reply to TransferBegin, status != OK refuses the transfer.
+message TransferStatus {
+  uint32 transfer_id = 1;
+  uint32 next_offset = 2;
+  Status status = 3;
+}
+
+// Receiver verified (or rejected) the whole transfer; closes it.
+message TransferEnd {
+  uint32 transfer_id = 1;
+  bool verified = 2;
+  Status status = 3;
+}
+
+// Wi-Fi (docs/06 §4 "Wi-Fi", P9-01). The password travels only over the encrypted, bonded link.
+
+// Values for WifiConfig.op. A plain uint32 on the wire, like TransferBegin.kind.
+enum WifiOp {
+  WIFI_OP_GET = 0;     // change nothing: the reply carries the WifiStatus
+  WIFI_OP_ADD = 1;     // save ssid + password (replacing a saved network with that ssid), clear the error, turn Wi-Fi on, join it
+  WIFI_OP_FORGET = 2;  // remove the saved network ssid (and leave it if it is the one joined)
+  WIFI_OP_SET_ON = 3;  // the watch's Wi-Fi switch: on
+}
+
+// Phone → watch request. The reply's body is the WifiStatus after the change; its status is OK,
+// INVALID (bad ssid or password length, FORGET of a network not saved), NO_SPACE (ADD of a sixth
+// network: forget one first) or INTERNAL. Joining takes seconds: its outcome comes as WifiStatus
+// events.
+message WifiConfig {
+  uint32 op = 1;        // WifiOp
+  string ssid = 2;      // ADD, FORGET: 1-32 bytes
+  string password = 3;  // ADD: WPA2/WPA3 passphrase, 8-63 bytes; empty for an open network
+  bool on = 4;          // SET_ON
+}
+
+// Values for WifiStatus.state.
+enum WifiState {
+  WIFI_STATE_OFF = 0;
+  WIFI_STATE_IDLE = 1;        // on, not joined: no saved network in range (scans again later)
+  WIFI_STATE_CONNECTING = 2;  // joining ssid
+  WIFI_STATE_CONNECTED = 3;   // joined ssid and has an address
+}
+
+// Values for WifiStatus.error.
+enum WifiError {
+  WIFI_ERR_NONE = 0;
+  WIFI_ERR_NOT_FOUND = 1;  // no saved network in range
+  WIFI_ERR_AUTH = 2;       // the network refused the password
+  WIFI_ERR_NO_IP = 3;      // joined, but got no address
+  WIFI_ERR_OTHER = 4;
+}
+
+// The watch's Wi-Fi: the reply to every WifiConfig, and a watch → phone event whenever it
+// changes while the link is up (switch, state, network, error, saved list).
+message WifiStatus {
+  bool on = 1;                // the Wi-Fi switch
+  uint32 state = 2;           // WifiState
+  string ssid = 3;            // CONNECTING, CONNECTED: the network, ≤ 32 bytes
+  sint32 rssi = 4;            // CONNECTED: dBm
+  string ip = 5;              // CONNECTED: IPv4 address, dotted, ≤ 15 bytes
+  uint32 error = 6;           // WifiError of the last attempt; NONE once joined
+  string error_ssid = 7;      // the network error is about (empty for NOT_FOUND), ≤ 32 bytes
+  repeated string saved = 8;  // saved networks, ≤ 5, most recently added first; each ≤ 32 bytes
+}
+
+// Home Assistant tiles (docs/06 §4 "Home Assistant", P9-05). The token travels only over the
+// encrypted, bonded link.
+
+// Values for HaConfig.Entity.kind. A plain uint32 on the wire, like TransferBegin.kind: a kind
+// unknown to the watch shows as a sensor (read only).
+enum HaKind {
+  HA_KIND_SENSOR = 0;  // a value to read: sensor, binary_sensor, weather, ...
+  HA_KIND_TOGGLE = 1;  // on / off: light, switch, fan, input_boolean, ... (HA_OP_TOGGLE)
+  HA_KIND_RUN = 2;     // scene, script, button, input_button (HA_OP_RUN)
+}
+
+// Phone → watch request, on every connect and whenever the user changes it: the server, its
+// long-lived access token and the entities to show, in order. An empty url forgets Home
+// Assistant (entities and token too). Reply: Ack, OK or INVALID (url not http(s)://, a missing
+// token or entity id, more than 12 entities, an entity id without a domain).
+message HaConfig {
+  message Entity {
+    string entity_id = 1;  // "light.kitchen", ≤ 63 bytes
+    string name = 2;       // shown on the watch, ≤ 31 bytes
+    uint32 kind = 3;       // HaKind
+  }
+  string url = 1;               // "http://192.168.1.10:8123", no path, ≤ 127 bytes
+  string token = 2;             // long-lived access token, ≤ 255 bytes
+  repeated Entity entities = 3; // ≤ 12
+}
+
+// Values for HaCommand.op.
+enum HaOp {
+  HA_OP_REFRESH = 0;  // read the states (entity_id, or every entity when empty)
+  HA_OP_TOGGLE = 1;   // homeassistant.toggle
+  HA_OP_RUN = 2;      // scene / script .turn_on, button / input_button .press
+}
+
+// Watch → phone request while the watch is not on Wi-Fi (or its own call to the server failed):
+// the phone calls Home Assistant with its copy of the configuration and replies HaStates with the
+// entity's new state (all of them for a REFRESH without entity_id). Reply status: OK; INVALID (an
+// entity the phone's configuration does not have, none configured, or the server answered with an
+// HTTP error); DENIED (the server refused the token); INTERNAL (the server could not be reached);
+// UNSUPPORTED (an unknown op, or a phone app without the relay).
+message HaCommand {
+  uint32 op = 1;         // HaOp
+  string entity_id = 2;  // ≤ 63 bytes
+}
+
+// The reply to HaCommand: entity states as Home Assistant reports them.
+message HaStates {
+  message State {
+    string entity_id = 1;  // ≤ 63 bytes
+    string state = 2;      // "on", "off", "21.5", "unavailable", ...; ≤ 31 bytes, cut on a code point
+    string unit = 3;       // attributes.unit_of_measurement, ≤ 15 bytes
+  }
+  repeated State states = 1;  // ≤ 12
+}
+
+// Screenshot of the watch's own screen (docs/06 §4 "Screenshot", P8-19).
+
+// Phone → watch request: capture the screen now and upload it as a TRANSFER_SCREENSHOT_UP (PNG,
+// named shot_YYYYMMDD_HHMMSS.png). Reply Ack: OK (the transfer follows within seconds); BUSY (one
+// is being captured or sent); INVALID (the screen is off); UNSUPPORTED (older firmware answers it
+// for the whole message).
+message ScreenshotRequest {}
+
+// Pro licence (docs/10 §4, P12-03).
+
+// Phone → watch request: store this licence (the 112-byte license.bin the licence server signed,
+// docs/10 §4) as /flash/license.bin. The watch checks it first (format, signature, this watch's
+// MAC, expiry) and keeps the old one when it fails. An empty license stores nothing and asks for
+// the current status. Reply: LicenseStatus, with Status OK (stored, or only asked), INVALID (not
+// stored: LicenseStatus.result says why), INTERNAL (the file could not be written), UNSUPPORTED
+// (Community firmware or older firmware answers it for the whole message).
+message LicenseInstall {
+  bytes license = 1;  // 112 bytes, or empty; ≤ 128
+}
+
+// Values for LicenseStatus.result: license_status_t of the watch's check.
+enum LicenseResult {
+  LICENSE_RESULT_OK = 0;
+  LICENSE_RESULT_NONE = 1;          // no licence installed
+  LICENSE_RESULT_BAD_FORMAT = 2;    // wrong size, magic, format, edition, kind or reserved bytes
+  LICENSE_RESULT_BAD_SIGNATURE = 3; // not signed by the licence key
+  LICENSE_RESULT_WRONG_MAC = 4;     // made for another watch
+  LICENSE_RESULT_EXPIRED = 5;       // trial past its expiry
+}
+
+// The reply to LicenseInstall: the licence the watch has now (after an install, the new one).
+message LicenseStatus {
+  uint32 result = 1;    // LicenseResult of the installed licence, or of the one just refused
+  bool pro = 2;         // Pro features are on
+  uint32 kind = 3;      // 0 perpetual, 1 trial (valid unless result is NONE or BAD_FORMAT)
+  int64 issued = 4;     // Unix s
+  int64 expires = 5;    // Unix s, 0 = never
+  bytes mac = 6;        // this watch's base MAC (6 bytes), the one a licence must be made for
+  bytes order = 7;      // the licence's order id (16 bytes)
+}

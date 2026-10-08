@@ -1,3 +1,0 @@
-# Widget gallery page "gallery.qr".
-push gallery.qr
-wait 400

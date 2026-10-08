@@ -1,0 +1,6 @@
+# S3Wear — Community edition (docs/10-editions-licensing.md §3), applied on top of sdkconfig.defaults:
+#   idf.py -B build-community -D SDKCONFIG=build-community/sdkconfig \
+#          -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.community" build
+# Combine with sdkconfig.defaults.release for a Community release build.
+
+CONFIG_S3W_EDITION_PRO=n

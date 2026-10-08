@@ -1,5 +1,0 @@
-# Dragging the knob to the end stops the alarm (golden equals home.png).
-ring alarm
-wait 400
-swipe 80 427 360 427 400
-wait 500

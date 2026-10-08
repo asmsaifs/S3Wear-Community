@@ -1,0 +1,10 @@
+{
+  "deviceStatus": {
+    "batteryPct": 64,
+    "charging": true,
+    "usbPower": true,
+    "storageFreeKb": 12000,
+    "storageTotalKb": 16384,
+    "timeValid": true
+  }
+}

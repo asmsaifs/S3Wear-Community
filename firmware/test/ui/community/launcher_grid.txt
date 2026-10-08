@@ -1,0 +1,4 @@
+# P12-01 Community: every app in the honeycomb grid, no Pro apps.
+launcher grid
+push launcher
+wait 400

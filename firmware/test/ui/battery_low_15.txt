@@ -1,3 +1,0 @@
-# 15 %: a toast only (docs/03 F5; the sound comes with svc_audio, P3-11).
-low 15
-wait 400

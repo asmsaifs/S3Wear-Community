@@ -54,6 +54,27 @@ void s3w_lvgl_port_set_output(bool on);
  */
 void s3w_lvgl_port_set_low_power(bool low_power);
 
+/**
+ * Partial rendering with one internal DMA draw buffer instead of two (true) — frees one
+ * (S3W_LVGL_PORT_BUF_BYTES, 32 KB) for the Wi-Fi driver (P9-01), at the cost of rendering waiting
+ * for each band's DMA — or with two again (false). Takes lv_lock() and waits for the flush in
+ * flight; any task but one already holding lv_lock() from another task. ESP_ERR_NO_MEM: the second
+ * buffer could not be allocated back (stays single; call again later). ESP_ERR_NOT_SUPPORTED in
+ * direct render mode.
+ */
+esp_err_t s3w_lvgl_port_set_single_buffer(bool single);
+
+/**
+ * Screenshot (P8-17): repaint the whole screen, layers and overlays included, and copy what is
+ * sent to the panel into dst (hres * vres RGB565, host byte order, row-major). Blocks the calling
+ * task (not the UI task) until the frame is complete or timeout_ms passes (ESP_ERR_TIMEOUT).
+ * ESP_ERR_INVALID_STATE: panel output is off, a capture is running, or called on the UI task.
+ */
+esp_err_t s3w_lvgl_port_capture(uint16_t *dst, uint32_t timeout_ms);
+
+/** Panel output is on (the screen shows frames). Any task. */
+bool s3w_lvgl_port_output_is_on(void);
+
 /** Flush-side timing, accumulated since the last reset (display performance, P2-04). */
 typedef struct {
     uint32_t frames;      // refresh cycles that flushed anything

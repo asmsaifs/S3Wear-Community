@@ -1,5 +1,7 @@
-// Radio checks for the factory test. Both stacks are brought up only for the test
-// and torn down again so normal boot keeps their RAM (svc_ble/svc_wifi own them later).
+// Radio checks for the factory test. Wi-Fi is brought up only for the test and torn
+// down again; while svc_wifi has it on, the test reads svc_wifi's state instead. BLE belongs to svc_ble from boot: when its
+// host is up the test checks that it advertises or has a link; only without svc_ble
+// (it failed to start) does the test bring NimBLE up by itself.
 #include "ft_radio.h"
 
 #include <stdio.h>
@@ -16,6 +18,7 @@
 #include "host/ble_hs.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
+#include "svc_ble.h"
 
 static const char *TAG = "ft_radio";
 
@@ -44,6 +47,13 @@ static int ble_gap_cb(struct ble_gap_event *event, void *arg)
 
 ft_status_t ft_ble_advertise(uint32_t adv_ms, char *detail, size_t len)
 {
+    svc_ble_status_t ble;
+    svc_ble_get_status(&ble);
+    if (ble.state != SVC_BLE_STATE_OFF) {
+        // svc_ble's host is up: it must advertise or have a link.
+        snprintf(detail, len, "%s %s", ble.name, svc_ble_state_name(ble.state));
+        return ble.state == SVC_BLE_STATE_IDLE ? FT_FAIL : FT_PASS;
+    }
     if (!s_ble_sync) {
         s_ble_sync = xSemaphoreCreateBinary();
     }
@@ -96,13 +106,18 @@ ft_status_t ft_ble_advertise(uint32_t adv_ms, char *detail, size_t len)
 
 ft_status_t ft_wifi_scan(char *detail, size_t len)
 {
-    static bool s_netif_ready;
-    if (!s_netif_ready) {
-        if (esp_netif_init() != ESP_OK || !esp_netif_create_default_wifi_sta()) {
-            snprintf(detail, len, "netif init failed");
-            return FT_FAIL;
-        }
-        s_netif_ready = true;
+    wifi_mode_t mode;
+    if (esp_wifi_get_mode(&mode) == ESP_OK) {
+        // svc_wifi has the radio (its switch is on): the driver is up, do not tear it down.
+        snprintf(detail, len, "in use by svc_wifi (switch it off to scan)");
+        ESP_LOGI(TAG, "wifi: %s", detail);
+        return FT_PASS;
+    }
+    // svc_wifi makes the same default netif when it first turns on: whoever is first creates it.
+    if (esp_netif_init() != ESP_OK ||
+        (!esp_netif_get_handle_from_ifkey("WIFI_STA_DEF") && !esp_netif_create_default_wifi_sta())) {
+        snprintf(detail, len, "netif init failed");
+        return FT_FAIL;
     }
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_err_t err = esp_wifi_init(&cfg);

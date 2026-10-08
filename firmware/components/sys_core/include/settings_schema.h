@@ -28,6 +28,11 @@
     INT (VOLUME_ALARM,       "vol_alarm",    80, 10, 100) /* %, never mute */\
     BOOL(SILENT,             "silent",       false)                          \
     INT (HAPTICS_LEVEL,      "haptics",      2, 0, 3)     /* off..strong */  \
+    BOOL(CALL_RING,          "call_ring",    true) /* ring for calls, P6-04 */\
+    /* Connections */                                                        \
+    BOOL(BLUETOOTH,          "bt_on",        true) /* svc_ble follows it */  \
+    BOOL(WIFI,               "wifi_on",      false) /* svc_wifi follows it */\
+    INT (WIFI_IDLE_OFF,      "wifi_idle_min", 10, 0, 120) /* min unused->off; 0=never */\
     /* Battery */                                                            \
     BOOL(BATTERY_SAVER,      "pwr_saver",    false)                          \
     /* Notifications */                                                      \
@@ -39,6 +44,13 @@
     INT (SLEEP_DAYS,         "sleep_days",   0, 0, 127)   /* bit0=Sun; 0=off */\
     INT (SLEEP_START,        "sleep_start",  1380, 0, 1439)                  \
     INT (SLEEP_END,          "sleep_end",    420, 0, 1439)                   \
+    /* Health profile and goals (svc_activity, P5-01) */                     \
+    INT (HEIGHT_CM,          "hl_height",    170, 100, 250)                  \
+    INT (WEIGHT_KG,          "hl_weight",    70, 30, 250)                    \
+    INT (SEX,                "hl_sex",       0, 0, 2) /* 0 unset, 1 m, 2 f */\
+    INT (BIRTH_YEAR,         "hl_birth",     1990, 1900, 2100)               \
+    INT (STEP_GOAL,          "hl_step_goal", 10000, 1000, 100000)            \
+    INT (ACTIVE_GOAL_MIN,    "hl_active_goal", 30, 5, 600)                   \
     /* Language & region */                                                  \
     BOOL(TIME_24H,           "time_24h",     true)                           \
     STR (WORLD_CLOCKS,       "world",        "", 95)     /* city ids, csv */\

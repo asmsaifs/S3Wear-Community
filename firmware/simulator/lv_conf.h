@@ -34,10 +34,13 @@
 /* QR codes (s3w_qr), same as CONFIG_LV_USE_QRCODE on the watch. */
 #define LV_USE_QRCODE 1
 
+/* TJpgDec: album art (svc_media/media_art.c), same as CONFIG_LV_USE_TJPGD on the watch. */
+#define LV_USE_TJPGD 1
+
 /* Same refresh period as the watch (CONFIG_LV_DEF_REFR_PERIOD). */
 #define LV_DEF_REFR_PERIOD 16
 
-/* lodepng: PNG encoder used by --screenshot. */
+/* lodepng: PNG encoder used by --screenshot, and the decoder of s3w_ui_image_file (app_image.c). */
 #define LV_USE_LODEPNG 1
 
 #define LV_BUILD_EXAMPLES 0

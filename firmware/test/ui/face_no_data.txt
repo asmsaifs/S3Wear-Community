@@ -1,4 +1,0 @@
-# Modular with no data (no phone, no services): every complication shows "--".
-face modular
-data clear
-wait 100

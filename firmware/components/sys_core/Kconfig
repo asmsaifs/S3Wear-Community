@@ -1,5 +1,16 @@
 menu "S3Wear core (sys_core)"
 
+    config S3W_EDITION_PRO
+        bool "S3Wear Pro edition"
+        default y
+        help
+            Pro edition (docs/10-editions-licensing.md §3): phone services, notifications,
+            health beyond steps, voice, the store, Wi-Fi and the other Pro-only features.
+            Off builds the Community edition (sdkconfig.defaults.community): those features
+            are not compiled, and their launcher entries, tiles and settings are hidden.
+            Code tests the flag through s3w_edition.h (S3W_EDITION_PRO), which the
+            simulator and host tests set without sdkconfig.h.
+
     config S3W_LVGL_THREAD_CHECK
         bool "Assert on LVGL access without lv_lock()"
         default y

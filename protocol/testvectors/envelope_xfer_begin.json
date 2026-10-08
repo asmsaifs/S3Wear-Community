@@ -1,0 +1,12 @@
+{
+  "id": 21,
+  "xferBegin": {
+    "transferId": 7,
+    "kind": 2,
+    "size": 1048576,
+    "sha256": "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8=",
+    "name": "s3wear-1.2.0.bin",
+    "window": 16,
+    "chunkSize": 498
+  }
+}

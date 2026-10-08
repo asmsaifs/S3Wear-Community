@@ -1,7 +1,0 @@
-# Alert closed with its secondary button -> result toast "Snoozed" over the screen.
-push gallery.overlays
-wait 400
-tap 200 336
-wait 300
-tap 205 389
-wait 300

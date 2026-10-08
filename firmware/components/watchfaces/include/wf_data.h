@@ -31,6 +31,7 @@ typedef enum {
     WF_DATA_ALL = 0x1FFFu,
 } wf_data_mask_t;
 
+/** Same values as svc_weather's weather_cond_t (WeatherCondition on the wire). */
 typedef enum {
     WF_WEATHER_CLEAR,
     WF_WEATHER_CLOUDY,
@@ -38,6 +39,7 @@ typedef enum {
     WF_WEATHER_SNOW,
     WF_WEATHER_STORM,
     WF_WEATHER_FOG,
+    WF_WEATHER_PARTLY, // partly cloudy
     WF_WEATHER_COUNT,
 } wf_weather_t;
 
@@ -48,9 +50,12 @@ typedef struct {
     int32_t steps_goal;       // > 0
     bool weather_valid;
     int16_t temp_c;           // current, °C
-    int16_t temp_lo_c;
+    int16_t temp_lo_c;        // today, valid with weather_range
     int16_t temp_hi_c;
+    bool weather_range;       // today's low / high known
     uint8_t weather;          // wf_weather_t
+    bool weather_night;       // moon instead of sun
+    bool weather_stale;       // fetched over 3 h ago: shown dimmed
     int8_t phone_battery_pct; // -1 unknown / not connected
     bool event_valid;
     char event_title[40];

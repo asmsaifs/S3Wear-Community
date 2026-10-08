@@ -1,5 +1,0 @@
-# Banner notification: tap the "Banner" row.
-push gallery.overlays
-wait 400
-tap 200 240
-wait 300

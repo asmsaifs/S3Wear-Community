@@ -93,11 +93,8 @@ static esp_err_t be_set_str(s3w_setting_t id, const char *v, void *ctx)
 static esp_err_t be_action(settings_action_t a, void *ctx)
 {
     (void)ctx;
-    static const char *const names[] = {"forget phone", "restart", "power off", "factory reset"};
+    static const char *const names[] = {"restart", "power off", "factory reset"};
     printf("settings action: %s\n", names[a]);
-    if (a == SETTINGS_ACT_FORGET_PHONE) {
-        return ESP_ERR_NOT_SUPPORTED; /* the phone link is P4 */
-    }
     if (a == SETTINGS_ACT_FACTORY_RESET) {
         settings_store_defaults(&s_store);
         for (int i = 0; i < S3W_SETTING_COUNT; i++) {

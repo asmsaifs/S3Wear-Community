@@ -1,3 +1,0 @@
-# Swipe down on the face: quick settings slide in from the top.
-swipe 205 120 205 400
-wait 400

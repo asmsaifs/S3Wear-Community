@@ -32,8 +32,17 @@ firmware/**/__pycache__/
 
 # --- Mini app SDK / apps ---
 apps/*/build/
+store/apps/*/build/
 sdk/templates/*/build/
 *.wasm
+# Hand-assembled runtime test modules (gen_test_apps.py), embedded in the firmware.
+!firmware/components/app_runtime/test_apps/*.wasm
+# Package test fixture (test_apps/pkg/make.sh packs it); host tests read it.
+!firmware/components/app_runtime/test_apps/pkg/hello/app.wasm
+# The preinstalled apps' modules (apps/build.sh), embedded in the firmware.
+!apps/*/app.wasm
+# The SDK samples' modules (sdk/examples/build.sh), embedded in the firmware and run by snapshot tests.
+!sdk/examples/*/*.wasm
 *.s3wapp
 
 # --- Android ---
@@ -60,3 +69,7 @@ venv/
 *.key
 secrets/
 .env
+
+# --- Cloudflare wrangler local state ---
+.wrangler/
+.claude/

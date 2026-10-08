@@ -1,0 +1,11 @@
+{
+  "replyTo": 43,
+  "status": {
+    "code": 2,
+    "message": "wrong MAC"
+  },
+  "licenseStatus": {
+    "result": 4,
+    "mac": "JFh8obLD"
+  }
+}

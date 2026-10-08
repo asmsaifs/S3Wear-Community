@@ -10,10 +10,13 @@
 #include "bsp_s3w.h"
 #include "drv_audio.h"
 #include "esp_check.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+#include "freertos/stream_buffer.h"
 #include "s3w_event.h"
 #include "s3w_task.h"
 #include "svc_modes.h"
@@ -25,17 +28,26 @@ static const char *TAG = "svc_audio";
 #define QUEUE_LEN    8
 #define CHUNK_MS     20
 #define CHUNK_FRAMES (MIX_RATE * CHUNK_MS / 1000)
+// Silence written after the codec opens, before the first sound: the ES8311 DAC and the
+// NS4150B amp need a moment to come up, and a game's 15 ms blip would otherwise be lost
+// (P3-11a). Adds this much latency to the first sound after SVC_AUDIO_IDLE_CLOSE_MS idle.
+#define PREROLL_CHUNKS 2 // 40 ms
 
 typedef enum {
     MSG_PLAY,
     MSG_RING,
     MSG_STOP,
     MSG_STOP_ALL,
+    MSG_TONE,         // hz, ms, vol
+    MSG_STREAM_START, // vol
 } msg_type_t;
 
 typedef struct {
     uint8_t type;
-    uint8_t id; // snd_id_t
+    uint8_t id;  // snd_id_t
+    uint8_t vol; // MSG_TONE, MSG_STREAM_START: the app's percent
+    uint16_t hz;
+    uint16_t ms;
 } msg_t;
 
 static struct {
@@ -49,6 +61,9 @@ static struct {
     // event bus task only
     bool power_seen;
     bool vbus;
+    // app stream: one writer (the app runtime), one reader (the svc_audio task)
+    StreamBufferHandle_t stream;
+    volatile bool stream_open;
 } s;
 
 static int16_t s_chunk[CHUNK_FRAMES]; // svc_audio task only
@@ -90,6 +105,21 @@ static void policy_read(snd_policy_t *p)
     p->vol_alarm = svc_settings_get_int(S3W_SETTING_VOLUME_ALARM);
 }
 
+// The stream voice's source (svc_audio task, inside mix_render()).
+static size_t pull_stream(void *ctx, int16_t *out, size_t frames)
+{
+    (void)ctx;
+    return xStreamBufferReceive(s.stream, out, frames * sizeof *out, 0) / sizeof *out;
+}
+
+// An app sound's codec volume: the policy's media volume (the app's percent is the voice's gain).
+static int app_volume(snd_id_t id)
+{
+    snd_policy_t p;
+    policy_read(&p);
+    return snd_volume(id, &p);
+}
+
 static void handle(const msg_t *m)
 {
     const snd_id_t id = (snd_id_t)m->id;
@@ -118,6 +148,28 @@ static void handle(const msg_t *m)
     case MSG_STOP_ALL:
         mix_stop_all(&s.mix);
         break;
+    case MSG_TONE: {
+        const int vol = app_volume(SND_APP_TONE);
+        if (vol <= 0 || m->vol == 0) {
+            stat_add(&s.st.muted);
+        } else if (mix_start_tone(&s.mix, m->hz, m->ms, vol, m->vol)) {
+            stat_add(&s.st.plays);
+        } else {
+            stat_add(&s.st.dropped);
+        }
+        break;
+    }
+    case MSG_STREAM_START: {
+        // Muted: the stream still drains (a silent voice), so the app's writes keep their pace.
+        const int vol = app_volume(SND_APP_STREAM);
+        const bool muted = vol <= 0 || m->vol == 0;
+        if (!mix_start_stream(&s.mix, pull_stream, NULL, muted ? 1 : vol, muted ? 0 : m->vol)) {
+            stat_add(&s.st.dropped);
+        } else {
+            stat_add(muted ? &s.st.muted : &s.st.plays);
+        }
+        break;
+    }
     }
 }
 
@@ -134,6 +186,12 @@ static void step(void)
         s.open = true;
         s.volume = -1;
         stat_add(&s.st.opens);
+        memset(s_chunk, 0, sizeof s_chunk);
+        for (int i = 0; i < PREROLL_CHUNKS; i++) {
+            if (drv_audio_out_write(s_chunk, sizeof s_chunk) != ESP_OK) {
+                break; // the sound's own write below reports it
+            }
+        }
     }
     const int vol = mix_render(&s.mix, s_chunk, CHUNK_FRAMES);
     if (vol != s.volume) {
@@ -187,6 +245,19 @@ static void on_power(void *ctx, esp_event_base_t base, int32_t id, const void *d
 }
 
 // --- API --------------------------------------------------------------------------------------
+
+static esp_err_t post_msg(const msg_t *m)
+{
+    ESP_RETURN_ON_FALSE(s.queue, ESP_ERR_INVALID_STATE, TAG, "not started");
+    if (!s.st.available) {
+        return ESP_OK;
+    }
+    if (xQueueSend(s.queue, m, 0) != pdTRUE) {
+        stat_add(&s.st.dropped);
+        return ESP_ERR_TIMEOUT;
+    }
+    return ESP_OK;
+}
 
 static esp_err_t post(msg_type_t type, snd_id_t id)
 {
@@ -251,6 +322,67 @@ esp_err_t svc_audio_stop(snd_id_t id)
 esp_err_t svc_audio_stop_all(void)
 {
     return post(MSG_STOP_ALL, SND_COUNT);
+}
+
+static uint8_t pct(int v)
+{
+    return (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v);
+}
+
+esp_err_t svc_audio_tone(int hz, int ms, int volume_pct)
+{
+    ESP_RETURN_ON_FALSE(hz >= 20 && hz <= 8000 && ms >= 1 && ms <= 10000, ESP_ERR_INVALID_ARG, TAG, "tone");
+    const msg_t m = {.type = MSG_TONE, .id = SND_APP_TONE, .vol = pct(volume_pct), .hz = (uint16_t)hz,
+                     .ms = (uint16_t)ms};
+    return post_msg(&m);
+}
+
+esp_err_t svc_audio_stream_open(int volume_pct)
+{
+    ESP_RETURN_ON_FALSE(s.queue, ESP_ERR_INVALID_STATE, TAG, "not started");
+    ESP_RETURN_ON_FALSE(!s.stream_open, ESP_ERR_INVALID_STATE, TAG, "stream open");
+    if (!s.stream) {
+        // PSRAM: 32 KB, never touched from an ISR. Kept once made. A buffer made WithCaps is a
+        // static one: it holds one byte less than its size, hence the + 1 (whole samples).
+        s.stream = xStreamBufferCreateWithCaps(SVC_AUDIO_STREAM_SAMPLES * sizeof(int16_t) + 1, 1,
+                                               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        ESP_RETURN_ON_FALSE(s.stream, ESP_ERR_NO_MEM, TAG, "stream buffer");
+    }
+    xStreamBufferReset(s.stream); // no reader: the voice is stopped
+    s.stream_open = true;
+    const msg_t m = {.type = MSG_STREAM_START, .id = SND_APP_STREAM, .vol = pct(volume_pct)};
+    return post_msg(&m);
+}
+
+size_t svc_audio_stream_write(const int16_t *pcm, size_t samples)
+{
+    if (!s.stream_open || !s.stream) {
+        return 0;
+    }
+    // Whole samples only: a partial send of an odd byte count would shift every later sample by a
+    // byte (loud noise, P7-01). One writer, so the space can only grow before the send.
+    const size_t room = xStreamBufferSpacesAvailable(s.stream) / sizeof *pcm;
+    if (samples > room) {
+        samples = room;
+    }
+    return samples ? xStreamBufferSend(s.stream, pcm, samples * sizeof *pcm, 0) / sizeof *pcm : 0;
+}
+
+size_t svc_audio_stream_queued(void)
+{
+    if (!s.stream_open || !s.stream) {
+        return 0;
+    }
+    return xStreamBufferBytesAvailable(s.stream) / sizeof(int16_t);
+}
+
+esp_err_t svc_audio_stream_close(void)
+{
+    if (!s.stream_open) {
+        return ESP_OK;
+    }
+    s.stream_open = false;
+    return post(MSG_STOP, SND_APP_STREAM); // the reader stops before the next open resets it
 }
 
 void svc_audio_get_status(svc_audio_status_t *out)

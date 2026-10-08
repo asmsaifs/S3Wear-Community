@@ -24,6 +24,18 @@ static int sensors_status(void)
            (unsigned long)st.windows, (unsigned long)st.raises, (unsigned long)st.samples, (unsigned long)st.errors);
     printf("raise wakes %lu, untouched before screen off (likely false) %lu\n",
            (unsigned long)pw.wakes[SVC_POWER_WAKE_RAISE], (unsigned long)pw.raise_unused);
+    if (st.streamed) {
+        printf("samples streamed to apps %lu\n", (unsigned long)st.streamed);
+    }
+    if (st.fifo_restarts) {
+        printf("FIFO %s: %lu samples in %lu reads, %lu restarts, %lu overflows\n",
+               st.fifo_period_us ? "on" : "off", (unsigned long)st.fifo_samples, (unsigned long)st.fifo_reads,
+               (unsigned long)st.fifo_restarts, (unsigned long)st.fifo_overflows);
+        if (st.fifo_period_us) {
+            printf("FIFO rate %lu.%lu Hz\n", (unsigned long)(1000000 / st.fifo_period_us),
+                   (unsigned long)(10000000 / st.fifo_period_us % 10));
+        }
+    }
     if (st.windows) {
         printf("last window: %u ms, away %d deg, end %d deg -> %s\n", st.last_ms, st.last_min_deg, st.last_end_deg,
                st.last_raise ? "raise" : "no raise");

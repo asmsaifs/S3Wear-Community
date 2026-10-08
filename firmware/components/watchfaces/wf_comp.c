@@ -16,6 +16,7 @@
 #define C_ORANGE  0xFF9F0A
 #define C_TEAL    0x40C8E0
 #define C_MOON    0xE5E5EA
+#define C_DIM     0x9A9AA0
 
 // App screen ids are the ones the system apps will register (P3-06..P5). Until an
 // app exists, a tap shows a toast (engine).
@@ -36,7 +37,8 @@ static const wf_comp_info_t INFO[WF_COMP_COUNT] = {
     [WF_COMP_MOON] = {"moon", "Moon phase", NULL, WF_DATA_TIME},
 };
 
-static const char *const WEATHER_LABEL[WF_WEATHER_COUNT] = {"CLEAR", "CLOUD", "RAIN", "SNOW", "STORM", "FOG"};
+static const char *const WEATHER_LABEL[WF_WEATHER_COUNT] = {"CLEAR", "CLOUD", "RAIN", "SNOW",
+                                                                   "STORM", "FOG",   "CLOUD"};
 
 const wf_comp_info_t *wf_comp_info(wf_comp_t c)
 {
@@ -121,8 +123,15 @@ void wf_comp_render(wf_comp_t c, const wf_ctx_t *ctx, wf_comp_view_t *v)
             if (d->weather < WF_WEATHER_COUNT) {
                 strcpy(v->label, WEATHER_LABEL[d->weather]);
             }
-            snprintf(v->detail, sizeof v->detail, "%s %d\xC2\xB0/%d\xC2\xB0", wf_weather_name(d->weather),
-                     d->temp_lo_c, d->temp_hi_c);
+            if (d->weather_range) {
+                snprintf(v->detail, sizeof v->detail, "%s %d\xC2\xB0/%d\xC2\xB0", wf_weather_name(d->weather),
+                         d->temp_lo_c, d->temp_hi_c);
+            } else {
+                snprintf(v->detail, sizeof v->detail, "%s", wf_weather_name(d->weather));
+            }
+            if (d->weather_stale) {
+                v->color = C_DIM; // old forecast (docs/03 F10)
+            }
         }
         break;
     case WF_COMP_NEXT_EVENT:

@@ -5,12 +5,16 @@
 // wake-on-motion interrupt, at most RAISE_MAX_MS), one accelerometer read every
 // SAMPLE_MS. The gesture needs ~50 Hz to see the wrist settle quickly. While an
 // alarm rings (flip watch), one read every FLIP_SAMPLE_MS: a flip takes ~1 s.
+// While a batch client is set (svc_activity, step counting), one FIFO drain every
+// FIFO_DRAIN_FRAMES sample periods (~4.6 s at 21 Hz): the FIFO holds 128 frames and steps
+// need every sample, with no FIFO interrupt to spare (INT1 is wake-on-motion's).
 #include "svc_sensors.h"
 
 #include <math.h>
 #include <string.h>
 
 #include "esp_check.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -37,6 +41,7 @@ ESP_EVENT_DEFINE_BASE(SVC_SENSORS_EVENT);
 // railed at full scale (measured: valid from 45-50 ms at 62.5 Hz), so 5 periods.
 #define ACCEL_SETTLE_MS 80
 #define REQUEST_TIMEOUT_MS 1000
+#define FIFO_DRAIN_FRAMES 96 // drain with 32 of the 128 frames to spare (see above)
 
 typedef enum {
     MSG_IRQ,
@@ -45,6 +50,8 @@ typedef enum {
     MSG_SUSPEND, // a = suspend
     MSG_READ_ACCEL,
     MSG_FLIP, // a = on
+    MSG_STREAM, // the stream fields changed
+    MSG_BATCH,  // the batch client changed
 } msg_type_t;
 
 typedef struct {
@@ -67,6 +74,20 @@ static struct {
     bool suspended;
     bool trace;
     uint8_t flip_watch; // svc_sensors_watch_flip() count
+    // svc_sensors_stream(): written by the caller under s_stats_lock, then MSG_STREAM
+    uint16_t stream_hz;
+    svc_sensors_sample_cb_t stream_cb;
+    void *stream_ctx;
+    // svc_sensors_set_batch_cb(): written by the caller under s_stats_lock, then MSG_BATCH
+    svc_sensors_batch_cb_t batch_cb;
+    void *batch_ctx;
+    bool fifo_on;
+    bool fifo_restart;     // next batch starts after a gap
+    uint8_t fifo_skip;     // first frames after a start (railed, ACCEL_SETTLE_MS)
+    uint32_t fifo_period_us;
+    uint32_t next_drain_ms;
+    hal_accel_t *fifo_raw; // PSRAM, HAL_IMU_FIFO_FRAMES each
+    svc_sensors_accel_t *fifo_out;
     raise_detect_t raise;
     flip_detect_t flip;
     uint32_t window_start_ms;
@@ -170,6 +191,88 @@ static void set_mode(svc_sensors_mode_t mode)
     portEXIT_CRITICAL(&s_stats_lock);
 }
 
+static bool batch_client(void)
+{
+    portENTER_CRITICAL(&s_stats_lock);
+    const bool on = s.batch_cb != NULL;
+    portEXIT_CRITICAL(&s_stats_lock);
+    return on;
+}
+
+// --- FIFO (batches) ------------------------------------------------------------------
+
+// Hand whatever the FIFO holds to the batch client.
+static void fifo_drain(uint32_t now)
+{
+    if (!s.fifo_on) {
+        return;
+    }
+    s.next_drain_ms = now + FIFO_DRAIN_FRAMES * (s.fifo_period_us / 1000);
+    size_t n = 0;
+    bool overflow = false;
+    const esp_err_t err = hal_imu_fifo_read(s.fifo_raw, HAL_IMU_FIFO_FRAMES, &n, &overflow);
+    count_error(err);
+    if (err != ESP_OK || n == 0) {
+        return;
+    }
+    size_t first = 0;
+    if (s.fifo_skip) {
+        first = s.fifo_skip < n ? s.fifo_skip : n;
+        s.fifo_skip -= (uint8_t)first;
+    }
+    portENTER_CRITICAL(&s_stats_lock);
+    const svc_sensors_batch_cb_t cb = s.batch_cb;
+    void *ctx = s.batch_ctx;
+    s.st.fifo_reads++;
+    s.st.fifo_samples += n - first;
+    s.st.fifo_overflows += overflow;
+    portEXIT_CRITICAL(&s_stats_lock);
+    if (!cb || first == n) {
+        return;
+    }
+    for (size_t i = first; i < n; i++) {
+        s.fifo_out[i - first] = (svc_sensors_accel_t){.x = s.fifo_raw[i].x, .y = s.fifo_raw[i].y, .z = s.fifo_raw[i].z};
+    }
+    const svc_sensors_batch_t b = {
+        .s = s.fifo_out,
+        .n = (uint16_t)(n - first),
+        .restart = s.fifo_restart || overflow,
+        .period_us = s.fifo_period_us,
+        .end_ms = now,
+    };
+    s.fifo_restart = false;
+    cb(ctx, &b);
+}
+
+// Drain, then forget the FIFO: the IMU is about to be reconfigured.
+static void fifo_stop(void)
+{
+    fifo_drain(now_ms());
+    s.fifo_on = false;
+}
+
+// After the accelerometer mode is set: keep its samples for the batch client.
+static void fifo_start(uint32_t now)
+{
+    if (!batch_client() || !s.fifo_raw) {
+        return;
+    }
+    uint32_t period_us = 0;
+    const esp_err_t err = hal_imu_fifo_start(&period_us);
+    count_error(err);
+    if (err != ESP_OK || period_us < 1000) {
+        return;
+    }
+    s.fifo_on = true;
+    s.fifo_restart = true;
+    s.fifo_period_us = period_us;
+    s.fifo_skip = (uint8_t)((ACCEL_SETTLE_MS * 1000 + period_us - 1) / period_us);
+    s.next_drain_ms = now + FIFO_DRAIN_FRAMES * (period_us / 1000);
+    portENTER_CRITICAL(&s_stats_lock);
+    s.st.fifo_restarts++;
+    portEXIT_CRITICAL(&s_stats_lock);
+}
+
 // What the mode should be now (a window stays open until it ends).
 static svc_sensors_mode_t wanted(void)
 {
@@ -179,9 +282,16 @@ static svc_sensors_mode_t wanted(void)
     if (s.present && s.flip_watch) {
         return SVC_SENSORS_MODE_FLIP;
     }
+    const bool on_screen = s.power == POWER_STATE_ACTIVE || s.power == POWER_STATE_DIM;
+    if (s.present && s.stream_hz && on_screen) {
+        return SVC_SENSORS_MODE_STREAM;
+    }
     // SAVER: fewer wake sources (docs/02 §7). Sleep and theater modes: raise_on is off.
     const bool off_screen = s.power == POWER_STATE_AOD || s.power == POWER_STATE_SLEEP;
-    return s.present && s.raise_on && off_screen ? SVC_SENSORS_MODE_WAIT : SVC_SENSORS_MODE_OFF;
+    if (s.present && s.raise_on && off_screen) {
+        return SVC_SENSORS_MODE_WAIT;
+    }
+    return s.present && batch_client() ? SVC_SENSORS_MODE_STEPS : SVC_SENSORS_MODE_OFF;
 }
 
 // Put the IMU in the state a mode needs, from any state (a window, diagnostics).
@@ -190,6 +300,7 @@ static void configure(svc_sensors_mode_t mode)
     if (!s.present) {
         return;
     }
+    fifo_stop();
     count_error(hal_imu_off());
     if (mode == SVC_SENSORS_MODE_WAIT) {
         count_error(hal_imu_motion_wake(WOM_MG));
@@ -197,6 +308,14 @@ static void configure(svc_sensors_mode_t mode)
         count_error(hal_imu_accel_start());
         flip_init(&s.flip);
         s.next_sample_ms = now_ms() + ACCEL_SETTLE_MS;
+    } else if (mode == SVC_SENSORS_MODE_STREAM) {
+        count_error(hal_imu_accel_start());
+        s.next_sample_ms = now_ms() + ACCEL_SETTLE_MS;
+    } else if (mode == SVC_SENSORS_MODE_STEPS) {
+        count_error(hal_imu_accel_lp_start());
+    }
+    if (mode != SVC_SENSORS_MODE_OFF && mode != SVC_SENSORS_MODE_SUSPENDED) {
+        fifo_start(now_ms());
     }
 }
 
@@ -205,8 +324,10 @@ static void configure(svc_sensors_mode_t mode)
 // ACCEL_SETTLE_MS (blocks this task only).
 static void take_pose(void)
 {
-    const bool on = s.mode == SVC_SENSORS_MODE_FLIP;
+    const bool on = s.mode == SVC_SENSORS_MODE_STREAM || s.mode == SVC_SENSORS_MODE_FLIP ||
+                    s.mode == SVC_SENSORS_MODE_STEPS;
     if (!on) {
+        fifo_stop(); // configure() follows and restarts it
         const esp_err_t err = hal_imu_accel_start();
         count_error(err);
         if (err != ESP_OK) {
@@ -265,8 +386,10 @@ static int deg_of(float c)
 
 static void window_open(uint32_t now)
 {
+    fifo_stop();
     const esp_err_t err = hal_imu_accel_start();
     count_error(err);
+    fifo_start(now);
     if (err != ESP_OK) {
         return; // stay in WAIT; the next motion tries again
     }
@@ -279,7 +402,8 @@ static void window_open(uint32_t now)
     set_mode(SVC_SENSORS_MODE_WINDOW);
 }
 
-static void window_close(bool raised, uint32_t now)
+// Counters and trace for a window that ended.
+static uint32_t window_done(bool raised, uint32_t now)
 {
     const uint32_t ms = now - s.window_start_ms;
     const int min_deg = deg_of(s.raise.min_cos);
@@ -298,6 +422,12 @@ static void window_close(bool raised, uint32_t now)
         ESP_LOGI(TAG, "window %lu ms, %u samples: away %d deg, end %d deg (cone %d) -> %s", (unsigned long)ms,
                  s.raise.samples, min_deg, end_deg, s.st.cone_deg, raised ? "RAISE" : "no");
     }
+    return ms;
+}
+
+static void window_close(bool raised, uint32_t now)
+{
+    const uint32_t ms = window_done(raised, now);
     if (raised) {
         svc_power_wake(SVC_POWER_WAKE_RAISE);
         const svc_sensors_evt_raise_t evt = {.window_ms = (uint16_t)(ms > UINT16_MAX ? UINT16_MAX : ms)};
@@ -329,6 +459,30 @@ static void flip_step(uint32_t now)
     }
 }
 
+// App stream: one sample every 1000 / rate ms (the app asked for the rate; at most the
+// sensor's own 62.5 Hz).
+static void stream_step(uint32_t now)
+{
+    portENTER_CRITICAL(&s_stats_lock);
+    const uint16_t hz = s.stream_hz;
+    const svc_sensors_sample_cb_t cb = s.stream_cb;
+    void *ctx = s.stream_ctx;
+    portEXIT_CRITICAL(&s_stats_lock);
+    const uint32_t period = hz ? 1000u / hz : 1000u;
+    s.next_sample_ms = now + (period < 16 ? 16 : period);
+    hal_accel_t a;
+    const esp_err_t err = hal_imu_read_accel(&a);
+    count_error(err);
+    if (err != ESP_OK || !cb) {
+        return;
+    }
+    const svc_sensors_accel_t out = {.x = a.x, .y = a.y, .z = a.z};
+    cb(ctx, &out);
+    portENTER_CRITICAL(&s_stats_lock);
+    s.st.streamed++;
+    portEXIT_CRITICAL(&s_stats_lock);
+}
+
 static void window_sample(uint32_t now)
 {
     s.next_sample_ms = now + SAMPLE_MS;
@@ -340,7 +494,17 @@ static void window_sample(uint32_t now)
         return;
     }
     const raise_result_t r = raise_sample(&s.raise, a.x, a.y, a.z, now);
-    if (r != RAISE_CONTINUE) {
+    if (r == RAISE_END && s.fifo_on && now - s.raise.last_motion_ms < RAISE_QUIET_MS) {
+        // Ended at RAISE_MAX_MS with the wrist still moving (walking): the next window opens
+        // at once with the accelerometer and its FIFO left running. Going back to
+        // wake-on-motion would lose the steps until it fires again: its FIFO stays empty.
+        window_done(false, now);
+        raise_motion(&s.raise, now);
+        s.window_start_ms = now;
+        portENTER_CRITICAL(&s_stats_lock);
+        s.st.windows++;
+        portEXIT_CRITICAL(&s_stats_lock);
+    } else if (r != RAISE_CONTINUE) {
         window_close(r == RAISE_WAKE, now);
     }
 }
@@ -351,8 +515,9 @@ static esp_err_t read_accel_now(svc_sensors_accel_t *out)
 {
     ESP_RETURN_ON_FALSE(s.present, ESP_ERR_NOT_FOUND, TAG, "no IMU");
     ESP_RETURN_ON_FALSE(!s.suspended, ESP_ERR_INVALID_STATE, TAG, "suspended");
-    const bool streaming = s.mode == SVC_SENSORS_MODE_WINDOW;
+    const bool streaming = s.mode == SVC_SENSORS_MODE_WINDOW || s.mode == SVC_SENSORS_MODE_STREAM;
     if (!streaming) {
+        fifo_stop(); // configure() below restarts it
         ESP_RETURN_ON_ERROR(hal_imu_accel_start(), TAG, "accel on");
         vTaskDelay(pdMS_TO_TICKS(ACCEL_SETTLE_MS)); // console request only
     }
@@ -407,6 +572,19 @@ static void handle(const msg_t *m, uint32_t now)
         s.flip_watch = m->a ? s.flip_watch + 1 : s.flip_watch ? s.flip_watch - 1 : 0;
         apply();
         break;
+    case MSG_STREAM:
+        apply();
+        break;
+    case MSG_BATCH:
+        if (s.mode == SVC_SENSORS_MODE_WINDOW) {
+            break; // the window's end configures the FIFO
+        }
+        if (wanted() == s.mode) {
+            configure(s.mode); // same mode, FIFO on or off
+        } else {
+            apply();
+        }
+        break;
     }
 }
 
@@ -415,9 +593,16 @@ static void sensors_task(void *arg)
     (void)arg;
     for (;;) {
         TickType_t wait = portMAX_DELAY;
-        if (s.mode == SVC_SENSORS_MODE_WINDOW || s.mode == SVC_SENSORS_MODE_FLIP) {
-            const int32_t ms = (int32_t)(s.next_sample_ms - now_ms());
+        const uint32_t before = now_ms();
+        if (s.mode == SVC_SENSORS_MODE_WINDOW || s.mode == SVC_SENSORS_MODE_FLIP ||
+            s.mode == SVC_SENSORS_MODE_STREAM) {
+            const int32_t ms = (int32_t)(s.next_sample_ms - before);
             wait = ms > 0 ? pdMS_TO_TICKS(ms) : 0;
+        }
+        if (s.fifo_on) {
+            const int32_t ms = (int32_t)(s.next_drain_ms - before);
+            const TickType_t w = ms > 0 ? pdMS_TO_TICKS(ms) : 0;
+            wait = w < wait ? w : wait;
         }
         msg_t m;
         if (xQueueReceive(s.queue, &m, wait)) {
@@ -428,6 +613,11 @@ static void sensors_task(void *arg)
             window_sample(now);
         } else if (s.mode == SVC_SENSORS_MODE_FLIP && (int32_t)(now - s.next_sample_ms) >= 0) {
             flip_step(now);
+        } else if (s.mode == SVC_SENSORS_MODE_STREAM && (int32_t)(now - s.next_sample_ms) >= 0) {
+            stream_step(now);
+        }
+        if (s.fifo_on && (int32_t)(now_ms() - s.next_drain_ms) >= 0) {
+            fifo_drain(now_ms());
         }
     }
 }
@@ -443,6 +633,9 @@ esp_err_t svc_sensors_start(void)
     load_settings();
     s.st.present = s.present;
 
+    s.fifo_raw = heap_caps_malloc(HAL_IMU_FIFO_FRAMES * sizeof *s.fifo_raw, MALLOC_CAP_SPIRAM);
+    s.fifo_out = heap_caps_malloc(HAL_IMU_FIFO_FRAMES * sizeof *s.fifo_out, MALLOC_CAP_SPIRAM);
+    ESP_RETURN_ON_FALSE(s.fifo_raw && s.fifo_out, ESP_ERR_NO_MEM, TAG, "fifo buffers");
     s.req_lock = xSemaphoreCreateMutex();
     s.req_done = xSemaphoreCreateBinary();
     s.queue = xQueueCreate(QUEUE_LEN, sizeof(msg_t));
@@ -480,6 +673,26 @@ esp_err_t svc_sensors_watch_flip(bool on)
     return post(MSG_FLIP, on);
 }
 
+esp_err_t svc_sensors_stream(uint16_t rate_hz, svc_sensors_sample_cb_t cb, void *ctx)
+{
+    ESP_RETURN_ON_FALSE(rate_hz == 0 || cb, ESP_ERR_INVALID_ARG, TAG, "cb");
+    portENTER_CRITICAL(&s_stats_lock);
+    s.stream_hz = rate_hz > 62 ? 62 : rate_hz;
+    s.stream_cb = rate_hz ? cb : NULL;
+    s.stream_ctx = rate_hz ? ctx : NULL;
+    portEXIT_CRITICAL(&s_stats_lock);
+    return post(MSG_STREAM, 0);
+}
+
+esp_err_t svc_sensors_set_batch_cb(svc_sensors_batch_cb_t cb, void *ctx)
+{
+    portENTER_CRITICAL(&s_stats_lock);
+    s.batch_cb = cb;
+    s.batch_ctx = cb ? ctx : NULL;
+    portEXIT_CRITICAL(&s_stats_lock);
+    return post(MSG_BATCH, 0);
+}
+
 void svc_sensors_set_trace(bool on)
 {
     s.trace = on;
@@ -499,6 +712,7 @@ void svc_sensors_get_stats(svc_sensors_stats_t *out)
     portENTER_CRITICAL(&s_stats_lock);
     *out = s.st;
     out->mode = s.mode;
+    out->fifo_period_us = s.fifo_on ? s.fifo_period_us : 0;
     portEXIT_CRITICAL(&s_stats_lock);
     out->stack_free = s.task ? uxTaskGetStackHighWaterMark(s.task) : 0;
 }
@@ -511,6 +725,8 @@ const char *svc_sensors_mode_name(svc_sensors_mode_t mode)
         [SVC_SENSORS_MODE_WINDOW] = "raise window",
         [SVC_SENSORS_MODE_SUSPENDED] = "suspended (diagnostics)",
         [SVC_SENSORS_MODE_FLIP] = "flip watch",
+        [SVC_SENSORS_MODE_STREAM] = "app stream",
+        [SVC_SENSORS_MODE_STEPS] = "steps only",
     };
-    return (unsigned)mode <= SVC_SENSORS_MODE_FLIP ? k_names[mode] : "?";
+    return (unsigned)mode <= SVC_SENSORS_MODE_STEPS ? k_names[mode] : "?";
 }

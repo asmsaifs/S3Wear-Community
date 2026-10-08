@@ -1,8 +1,0 @@
-# Customize -> the "Left" slot: every complication, the current one (Steps) ticked.
-face modular
-hold 205 120
-wait 400
-tap 205 446
-wait 400
-tap 205 205
-wait 400

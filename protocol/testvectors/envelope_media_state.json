@@ -1,0 +1,14 @@
+{
+  "mediaState": {
+    "app": "Spotify",
+    "title": "Blue in Green",
+    "artist": "Miles Davis",
+    "album": "Kind of Blue",
+    "playing": true,
+    "positionMs": 83000,
+    "durationMs": 337000,
+    "volume": 9,
+    "volumeMax": 15,
+    "artworkHash": 2864434397
+  }
+}

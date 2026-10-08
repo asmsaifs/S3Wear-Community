@@ -1,5 +1,0 @@
-# A preset starts a timer at once and it shows above the presets.
-push timer
-wait 400
-tap 317 165   # 5 min
-wait 1300

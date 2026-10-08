@@ -4,7 +4,9 @@
 // open they must use the same sample rate.
 //
 // Power: nothing runs until *_open(). *_close() stops the I2S channel, powers the
-// codec down and (output) switches the speaker amp off.
+// codec down and (output) switches the speaker amp off. RAM: the I2S channels and their
+// DMA buffers (~7.7 KB internal, 4 x 240 frames each way since P7-01) exist only while a
+// direction is open (P9-01).
 #pragma once
 
 #include <stdbool.h>

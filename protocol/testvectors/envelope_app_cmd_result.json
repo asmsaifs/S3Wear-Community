@@ -1,0 +1,9 @@
+{
+  "appCmd": {
+    "cmd": 1,
+    "appId": "com.example.hello",
+    "install": true,
+    "result": {},
+    "version": "1.2.3"
+  }
+}

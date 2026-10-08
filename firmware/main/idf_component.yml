@@ -16,5 +16,3 @@ dependencies:
     version: "==1.22.3"
   espressif/esp-sr:
     version: "==2.5.5"
-  espressif/wasm-micro-runtime:
-    version: "==2.4.0~1"

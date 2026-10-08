@@ -109,7 +109,10 @@ void ui_toast_show(const char *text, uint32_t ms)
 // --- Banner ------------------------------------------------------------------------
 
 static lv_obj_t *s_banner;
+static lv_obj_t *s_banner_col; // the text column of s_banner
 static lv_timer_t *s_banner_timer;
+static uint32_t s_banner_id;
+static uint32_t s_banner_ms;
 static void (*s_banner_tap)(void *ctx);
 static void *s_banner_ctx;
 
@@ -122,6 +125,7 @@ static void banner_close(void)
     if (s_banner) {
         lv_obj_t *b = s_banner;
         s_banner = NULL;
+        s_banner_col = NULL;
         lv_obj_remove_flag(b, LV_OBJ_FLAG_CLICKABLE);
         fade(b, LV_OPA_COVER, LV_OPA_TRANSP, 0, delete_on_done);
     }
@@ -131,6 +135,11 @@ static void banner_timeout_cb(lv_timer_t *t)
 {
     (void)t;
     s_banner_timer = NULL; // auto-deleted (repeat count 1)
+    banner_close();
+}
+
+void ui_banner_dismiss(void)
+{
     banner_close();
 }
 
@@ -145,10 +154,47 @@ static void banner_click_cb(lv_event_t *e)
     }
 }
 
-void ui_banner_show(const ui_banner_t *banner)
+// Phone-rendered text, scaled to the column's width; the column cuts the rows below it.
+static void banner_text_image(lv_obj_t *col, const lv_image_dsc_t *d)
+{
+    lv_obj_update_layout(s_banner);
+    const int32_t w = lv_obj_get_content_width(col);
+    const int32_t scale = d->header.w > 0 ? w * LV_SCALE_NONE / d->header.w : LV_SCALE_NONE;
+    lv_obj_t *img = lv_image_create(col);
+    lv_image_set_src(img, d);
+    lv_image_set_inner_align(img, LV_IMAGE_ALIGN_TOP_LEFT);
+    lv_image_set_pivot(img, 0, 0);
+    lv_image_set_scale(img, (uint32_t)scale);
+    lv_obj_set_size(img, w, LV_MIN(d->header.h * scale / LV_SCALE_NONE, lv_obj_get_content_height(col)));
+    lv_obj_set_style_image_recolor(img, ui_color(UI_COLOR_TEXT), 0);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+}
+
+static void banner_restart_timer(void)
+{
+    if (s_banner_timer) {
+        lv_timer_delete(s_banner_timer);
+    }
+    s_banner_timer = lv_timer_create(banner_timeout_cb, s_banner_ms, NULL);
+    lv_timer_set_repeat_count(s_banner_timer, 1);
+}
+
+bool ui_banner_set_text_image(uint32_t id, const lv_image_dsc_t *text_image)
+{
+    if (!s_banner_col || id != s_banner_id || !text_image) {
+        return false;
+    }
+    lv_obj_clean(s_banner_col);
+    banner_text_image(s_banner_col, text_image);
+    banner_restart_timer();
+    return true;
+}
+
+uint32_t ui_banner_show(const ui_banner_t *banner)
 {
     if (banner == NULL || ui_alert_is_active() || ui_nav_top_is_fullscreen()) {
-        return;
+        return 0;
     }
     if (s_banner_timer) {
         lv_timer_delete(s_banner_timer);
@@ -173,18 +219,32 @@ void ui_banner_show(const ui_banner_t *banner)
     lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(b, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    if (banner->icon) {
+    if (banner->image) {
+        lv_obj_t *img = lv_image_create(b);
+        lv_image_set_src(img, banner->image);
+    } else if (banner->icon) {
         lv_obj_t *icon = lv_label_create(b);
         lv_label_set_text(icon, banner->icon);
         lv_obj_set_style_text_font(icon, UI_FONT_TITLE, 0);
         lv_obj_set_style_text_color(icon, ui_theme_accent_color(), 0);
     }
     lv_obj_t *col = lv_obj_create(b);
+    s_banner_col = col;
     lv_obj_remove_style_all(col);
     lv_obj_set_flex_grow(col, 1);
-    lv_obj_set_height(col, LV_SIZE_CONTENT);
+    lv_obj_set_height(col, banner->text_image ? LV_PCT(100) : LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
     lv_obj_remove_flag(col, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    s_banner_ms = banner->ms ? banner->ms : UI_BANNER_MS_DEFAULT;
+    if (++s_banner_id == 0) {
+        s_banner_id = 1;
+    }
+    if (banner->text_image) {
+        banner_text_image(col, banner->text_image);
+        fade(b, LV_OPA_TRANSP, LV_OPA_COVER, 0, NULL);
+        banner_restart_timer();
+        return s_banner_id;
+    }
     lv_obj_t *title = lv_label_create(col);
     lv_obj_set_size(title, LV_PCT(100), lv_font_get_line_height(UI_FONT_BODY));
     lv_obj_set_style_text_font(title, UI_FONT_BODY, 0);
@@ -199,8 +259,8 @@ void ui_banner_show(const ui_banner_t *banner)
     }
 
     fade(b, LV_OPA_TRANSP, LV_OPA_COVER, 0, NULL);
-    s_banner_timer = lv_timer_create(banner_timeout_cb, banner->ms ? banner->ms : UI_BANNER_MS_DEFAULT, NULL);
-    lv_timer_set_repeat_count(s_banner_timer, 1);
+    banner_restart_timer();
+    return s_banner_id;
 }
 
 // --- Alert -------------------------------------------------------------------------
@@ -380,6 +440,16 @@ void ui_alert_dismiss(void)
     alert_close(-1, false);
 }
 
+void ui_alert_cancel(void (*on_result)(int button, void *ctx), void *ctx)
+{
+    if (s_waiting.used && s_waiting.on_result == on_result && s_waiting.ctx == ctx) {
+        copy_free(&s_waiting);
+    }
+    if (s_cur.used && s_cur.on_result == on_result && s_cur.ctx == ctx) {
+        alert_close(-1, false);
+    }
+}
+
 bool ui_alert_is_active(void)
 {
     return s_cur.used;
@@ -407,6 +477,7 @@ void ui_overlay_clear(void)
         lv_anim_delete(s_banner, NULL);
         lv_obj_delete(s_banner);
         s_banner = NULL;
+        s_banner_col = NULL;
     }
     copy_free(&s_waiting);
     if (s_cur.used) {

@@ -242,7 +242,7 @@ esp_err_t qmi8658_read_temp(qmi8658_handle_t h, int16_t *cdeg)
 
 // --- FIFO ----------------------------------------------------------------------
 
-esp_err_t qmi8658_fifo_config(qmi8658_handle_t h, qmi8658_fifo_size_t size, uint8_t watermark)
+esp_err_t qmi8658_fifo_config(qmi8658_handle_t h, qmi8658_fifo_size_t size, uint8_t watermark, bool int1)
 {
     const bool acc = h->acc_on;
     const bool gyr = h->gyr_on;
@@ -251,16 +251,25 @@ esp_err_t qmi8658_fifo_config(qmi8658_handle_t h, qmi8658_fifo_size_t size, uint
     h->fifo_ctrl = (uint8_t)((size << 2) | FIFO_MODE_STREAM);
     ESP_RETURN_ON_ERROR(wr8(h, REG_FIFO_CTRL, h->fifo_ctrl), TAG, "fifo ctrl");
     ESP_RETURN_ON_ERROR(wr8(h, REG_FIFO_WTM, watermark), TAG, "wtm");
-    ESP_RETURN_ON_ERROR(update(h, REG_CTRL1, CTRL1_FIFO_INT1 | CTRL1_INT1_EN, CTRL1_FIFO_INT1 | CTRL1_INT1_EN), TAG,
-                        "int1");
+    if (int1) {
+        ESP_RETURN_ON_ERROR(
+            update(h, REG_CTRL1, CTRL1_FIFO_INT1 | CTRL1_INT1_EN, CTRL1_FIFO_INT1 | CTRL1_INT1_EN), TAG, "int1");
+    } else {
+        // FIFO interrupt to INT2, which is neither enabled nor wired: polled. INT1 keeps
+        // whatever else uses it (wake-on-motion).
+        ESP_RETURN_ON_ERROR(update(h, REG_CTRL1, CTRL1_FIFO_INT1, 0), TAG, "int2");
+    }
     return qmi8658_enable(h, acc, gyr);
 }
 
-esp_err_t qmi8658_fifo_read(qmi8658_handle_t h, uint8_t *buf, size_t cap, size_t *len)
+esp_err_t qmi8658_fifo_read(qmi8658_handle_t h, uint8_t *buf, size_t cap, size_t *len, uint8_t *status)
 {
     *len = 0;
     uint8_t cnt[2]; // FIFO_SMPL_CNT, FIFO_STATUS
     ESP_RETURN_ON_ERROR(rd(h, REG_FIFO_CNT, cnt, 2), TAG, "fifo cnt");
+    if (status) {
+        *status = cnt[1];
+    }
     if (!(cnt[1] & QMI8658_FIFO_NOT_EMPTY)) {
         return ESP_OK;
     }

@@ -1,0 +1,24 @@
+{
+  "notifPosted": {
+    "nid": 3735928559,
+    "appId": "com.whatsapp",
+    "appName": "WhatsApp",
+    "iconHash": 305419896,
+    "title": "Ana Lopes",
+    "text": "Running 10 min late — save me a seat?",
+    "whenMs": "1790000000123",
+    "category": 1,
+    "actions": [
+      {
+        "id": 0,
+        "title": "Reply",
+        "isReply": true
+      },
+      {
+        "id": 1,
+        "title": "Mark as read"
+      }
+    ],
+    "textBitmapId": 9
+  }
+}

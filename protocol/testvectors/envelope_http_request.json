@@ -1,0 +1,11 @@
+{
+  "httpReq": {
+    "requestId": 7,
+    "appId": "dev.s3wear.weather",
+    "method": 1,
+    "url": "https://api.example.com/v1/data?q=1",
+    "contentType": "application/json",
+    "body": "eyJhIjoxfQ==",
+    "maxBytes": 65536
+  }
+}

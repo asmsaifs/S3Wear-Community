@@ -60,6 +60,8 @@ TEST(AudioPolicy, SilentMutesSystemButNotAlarms)
         const snd_id_t id = (snd_id_t)i;
         if (snd_category(id) == SND_CAT_ALARM) {
             EXPECT_EQ(snd_volume(id, &p), 80) << snd_name(id);
+        } else if (snd_category(id) == SND_CAT_FIND) {
+            EXPECT_EQ(snd_volume(id, &p), 100) << snd_name(id);
         } else {
             EXPECT_EQ(snd_volume(id, &p), 0) << snd_name(id);
         }
@@ -73,6 +75,14 @@ TEST(AudioPolicy, QuietModesMuteSystemButNotAlarms)
     EXPECT_EQ(snd_volume(SND_LOW_BATTERY, &p), 0);
     EXPECT_EQ(snd_volume(SND_ALARM, &p), 80);
     EXPECT_EQ(snd_volume(SND_TIMER, &p), 80);
+}
+
+TEST(AudioPolicy, FindIsFullVolumeInEveryMode)
+{
+    snd_policy_t p = policy(true, true);
+    p.vol_alarm = 0;
+    p.vol_system = 0;
+    EXPECT_EQ(snd_volume(SND_FIND, &p), 100);
 }
 
 TEST(AudioPolicy, ZeroSystemVolumeMutes)
@@ -95,9 +105,21 @@ TEST(AudioPolicy, RingersLoop)
 {
     EXPECT_TRUE(snd_loops(SND_ALARM));
     EXPECT_TRUE(snd_loops(SND_TIMER));
+    EXPECT_TRUE(snd_loops(SND_FIND));
     EXPECT_FALSE(snd_loops(SND_CLICK));
     EXPECT_EQ(snd_length_ms(SND_ALARM), 1400u);
     EXPECT_EQ(snd_length_ms(SND_TIMER), 1000u);
+    EXPECT_EQ(snd_length_ms(SND_FIND), 1500u);
+    EXPECT_TRUE(snd_loops(SND_RING));
+    EXPECT_EQ(snd_length_ms(SND_RING), 2000u);
+}
+
+TEST(AudioPolicy, CallRingIsASystemSound)
+{
+    snd_policy_t p = policy();
+    EXPECT_EQ(snd_volume(SND_RING, &p), p.vol_system);
+    EXPECT_EQ(snd_volume(SND_RING, &(p = policy(true, false))), 0) << "Silent";
+    EXPECT_EQ(snd_volume(SND_RING, &(p = policy(false, true))), 0) << "DND, sleep, theater";
 }
 
 TEST(AudioMix, IdleRendersSilenceAndZeroVolume)
@@ -284,4 +306,115 @@ TEST(AudioMix, ChunkBoundariesDoNotChangeTheSignal)
     mix_render(&b, parts, 100);
     mix_render(&b, parts + 100, 380);
     EXPECT_EQ(memcmp(whole, parts, sizeof whole), 0);
+}
+
+TEST(AudioMix, AppToneHasItsOwnPitchAndLength)
+{
+    mix_t m;
+    mix_init(&m);
+    EXPECT_FALSE(mix_start(&m, SND_APP_TONE, 50, 0)); // only through mix_start_tone
+    EXPECT_FALSE(mix_start_tone(&m, 10, 100, 50, 100));    // below 20 Hz
+    EXPECT_FALSE(mix_start_tone(&m, 440, 0, 50, 100));
+    ASSERT_TRUE(mix_start_tone(&m, 1000, 50, 60, 100));
+    const auto pcm = render(&m, 40);
+    EXPECT_GT(peak(pcm), 1000);
+    EXPECT_TRUE(mix_playing(&m, SND_APP_TONE));
+    render(&m, 20); // 50 ms in all: done
+    EXPECT_FALSE(mix_active(&m));
+    // 1 kHz at 16 kHz: 16 samples a period, so about 2 sign changes per 16 samples mid-note.
+    mix_init(&m);
+    ASSERT_TRUE(mix_start_tone(&m, 1000, 100, 60, 100));
+    const auto mid = render(&m, 50);
+    int crossings = 0;
+    for (size_t i = 400; i < 560; i++) {
+        crossings += (mid[i - 1] < 0) != (mid[i] < 0);
+    }
+    EXPECT_NEAR(crossings, 20, 2);
+}
+
+struct Feed {
+    std::vector<int16_t> pcm;
+    size_t pos = 0;
+    static size_t pull(void *ctx, int16_t *out, size_t frames)
+    {
+        auto *f = static_cast<Feed *>(ctx);
+        const size_t n = std::min(frames, f->pcm.size() - f->pos);
+        std::copy(f->pcm.begin() + (long)f->pos, f->pcm.begin() + (long)(f->pos + n), out);
+        f->pos += n;
+        return n;
+    }
+};
+
+TEST(AudioMix, StreamPlaysWhatItPullsThenSilenceUntilStopped)
+{
+    mix_t m;
+    mix_init(&m);
+    Feed f;
+    f.pcm.assign(100, 8000);
+    EXPECT_FALSE(mix_start_stream(&m, nullptr, &f, 50, 100));
+    ASSERT_TRUE(mix_start_stream(&m, Feed::pull, &f, 50, 100));
+    int16_t out[300];
+    EXPECT_EQ(mix_render(&m, out, 300), 50);
+    EXPECT_EQ(out[0], 8000);
+    EXPECT_EQ(out[99], 8000);
+    EXPECT_EQ(out[100], 0); // starved: silence
+    EXPECT_TRUE(mix_playing(&m, SND_APP_STREAM));
+    mix_stop(&m, SND_APP_STREAM);
+    EXPECT_FALSE(mix_active(&m));
+}
+
+TEST(AudioMix, StreamUnderALouderVoiceIsScaled)
+{
+    mix_t m;
+    mix_init(&m);
+    Feed f;
+    f.pcm.assign(10, 8000);
+    ASSERT_TRUE(mix_start_stream(&m, Feed::pull, &f, 25, 100));
+    ASSERT_TRUE(mix_start_tone(&m, 2000, 1000, 100, 100));
+    int16_t out[10];
+    EXPECT_EQ(mix_render(&m, out, 10), 100); // the codec follows the louder voice
+    // The stream is a quarter of the top volume; the tone starts at 0 (attack).
+    EXPECT_NEAR(out[0], 2000, 50);
+}
+
+// P3-11a: the app's percent scales the samples; the codec stays at the media volume. (The codec's
+// percent is a dB scale, so 25 % of media 60 sent as codec 15 % played at -42.5 dB: unheard.)
+TEST(AudioMix, AppGainScalesTheSamplesNotTheCodec)
+{
+    mix_t full, quarter;
+    mix_init(&full);
+    mix_init(&quarter);
+    EXPECT_FALSE(mix_start_tone(&quarter, 700, 100, 60, 0));
+    EXPECT_FALSE(mix_start_tone(&quarter, 700, 100, 60, 101));
+    ASSERT_TRUE(mix_start_tone(&full, 700, 100, 60, 100));
+    ASSERT_TRUE(mix_start_tone(&quarter, 700, 100, 60, 25));
+    int16_t a[480], b[480];
+    EXPECT_EQ(mix_render(&full, a, 480), 60);
+    EXPECT_EQ(mix_render(&quarter, b, 480), 60); // codec at the media volume either way
+    const std::vector<int16_t> va(a, a + 480), vb(b, b + 480);
+    EXPECT_GT(peak(va), 10000);
+    EXPECT_NEAR(peak(vb), peak(va) / 4, 100);
+}
+
+TEST(AudioMix, StreamGainZeroIsSilent)
+{
+    mix_t m;
+    mix_init(&m);
+    Feed f;
+    f.pcm.assign(100, 8000);
+    EXPECT_FALSE(mix_start_stream(&m, Feed::pull, &f, 50, 101));
+    ASSERT_TRUE(mix_start_stream(&m, Feed::pull, &f, 1, 0));
+    int16_t out[100];
+    mix_render(&m, out, 100);
+    EXPECT_EQ(out[0], 0);
+    EXPECT_EQ(f.pos, 100u); // still drains at the app's pace
+}
+
+TEST(AudioPolicy, AppSoundsFollowMediaVolume)
+{
+    snd_policy_t p = policy();
+    p.vol_media = 30;
+    EXPECT_EQ(snd_volume(SND_APP_TONE, &p), 30);
+    EXPECT_EQ(snd_volume(SND_APP_STREAM, &p), 30);
+    EXPECT_EQ(snd_length_ms(SND_APP_TONE), 0u);
 }

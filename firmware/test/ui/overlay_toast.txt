@@ -1,5 +1,0 @@
-# Toast over a screen: tap the "Toast" row.
-push gallery.overlays
-wait 400
-tap 200 153
-wait 300

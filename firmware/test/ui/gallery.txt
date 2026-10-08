@@ -1,3 +1,0 @@
-# Widget gallery index.
-push gallery
-wait 400

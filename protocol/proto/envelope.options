@@ -16,3 +16,74 @@ s3w.v1.HelloAck.caps        max_count:32 max_size:24
 
 s3w.v1.TimeSync.tz_posix    max_size:64
 s3w.v1.TimeSync.tz_name     max_size:64
+
+s3w.v1.NotificationPosted.app_id   max_size:128
+s3w.v1.NotificationPosted.app_name max_size:64
+s3w.v1.NotificationPosted.title    max_size:129
+s3w.v1.NotificationPosted.text     max_size:1025
+s3w.v1.NotificationPosted.actions  max_count:3
+s3w.v1.NotificationPosted.Action.title max_size:32
+
+s3w.v1.NotificationAction.reply_text max_size:256
+
+s3w.v1.AppIcon.pixels       max_size:6912
+s3w.v1.TextBitmap.pixels    max_size:8192
+
+s3w.v1.CallState.name       max_size:64
+s3w.v1.CallState.number     max_size:32
+
+s3w.v1.MediaState.app       max_size:64
+s3w.v1.MediaState.title     max_size:129
+s3w.v1.MediaState.artist    max_size:129
+s3w.v1.MediaState.album     max_size:129
+s3w.v1.MediaArtwork.jpeg    max_size:8192
+
+s3w.v1.WeatherUpdate.location max_size:64
+s3w.v1.WeatherUpdate.hourly   max_count:24
+s3w.v1.WeatherUpdate.daily    max_count:7
+
+s3w.v1.CalendarUpdate.events         max_count:16
+s3w.v1.CalendarUpdate.Event.title    max_size:64
+s3w.v1.CalendarUpdate.Event.location max_size:48
+
+s3w.v1.TransferBegin.sha256 max_size:32 fixed_length:true
+s3w.v1.TransferBegin.name   max_size:64
+
+s3w.v1.AppList.apps                 max_count:64
+s3w.v1.AppList.App.id               max_size:48
+s3w.v1.AppList.App.name             max_size:32
+s3w.v1.AppList.App.version          max_size:16
+s3w.v1.AppList.App.category         max_size:8
+s3w.v1.AppInstallBegin.app_id       max_size:48
+s3w.v1.AppInstallBegin.version      max_size:16
+s3w.v1.AppInstallBegin.sha256       max_size:32 fixed_length:true
+s3w.v1.AppCommand.app_id            max_size:48
+s3w.v1.AppCommand.version           max_size:16
+
+s3w.v1.HttpProxyRequest.app_id       max_size:48
+s3w.v1.HttpProxyRequest.url          max_size:512
+s3w.v1.HttpProxyRequest.content_type max_size:64
+s3w.v1.HttpProxyRequest.body         max_size:4096
+s3w.v1.HttpProxyResponse.body        max_size:8192
+
+s3w.v1.WifiConfig.ssid       max_size:33
+s3w.v1.WifiConfig.password   max_size:64
+s3w.v1.WifiStatus.ssid       max_size:33
+s3w.v1.WifiStatus.ip         max_size:16
+s3w.v1.WifiStatus.error_ssid max_size:33
+s3w.v1.WifiStatus.saved      max_count:5 max_size:33
+
+s3w.v1.HaConfig.url                max_size:128
+s3w.v1.HaConfig.token              max_size:256
+s3w.v1.HaConfig.entities           max_count:12
+s3w.v1.HaConfig.Entity.entity_id   max_size:64
+s3w.v1.HaConfig.Entity.name        max_size:32
+s3w.v1.HaCommand.entity_id         max_size:64
+s3w.v1.HaStates.states             max_count:12
+s3w.v1.HaStates.State.entity_id    max_size:64
+s3w.v1.HaStates.State.state        max_size:32
+s3w.v1.HaStates.State.unit         max_size:16
+
+s3w.v1.LicenseInstall.license max_size:128
+s3w.v1.LicenseStatus.mac      max_size:6
+s3w.v1.LicenseStatus.order    max_size:16

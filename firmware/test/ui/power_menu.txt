@@ -1,3 +1,0 @@
-# Power menu (PWR held 2 s on the watch; here pushed by id without args).
-push power
-wait 500

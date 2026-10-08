@@ -1,0 +1,12 @@
+{
+  "id": 31,
+  "haConfig": {
+    "url": "http://192.168.1.10:8123",
+    "token": "eyJhbGciOiJIUzI1NiJ9.test.token",
+    "entities": [
+      {"entityId": "light.kitchen", "name": "Kitchen", "kind": 1},
+      {"entityId": "sensor.living_temp", "name": "Living room"},
+      {"entityId": "scene.movie", "name": "Movie", "kind": 2}
+    ]
+  }
+}

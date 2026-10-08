@@ -1,3 +1,0 @@
-# Widget gallery page "gallery.buttons".
-push gallery.buttons
-wait 400

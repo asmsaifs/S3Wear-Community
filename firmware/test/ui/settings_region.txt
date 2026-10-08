@@ -1,9 +1,0 @@
-# Language & region: 24-hour switch, time zone, language.
-push settings
-wait 400
-swipe 205 450 205 50
-swipe 205 450 205 50
-swipe 205 450 205 50
-wait 400
-tap 205 249
-wait 400

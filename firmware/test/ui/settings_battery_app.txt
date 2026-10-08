@@ -1,9 +1,0 @@
-# Battery details opens the Battery app.
-push settings
-wait 400
-swipe 205 420 205 60
-wait 300
-tap 205 273
-wait 400
-tap 205 240
-wait 500

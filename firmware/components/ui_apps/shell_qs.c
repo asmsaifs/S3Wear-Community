@@ -4,6 +4,7 @@
 // swipe up, BACK or PWR closes it.
 #include <stdio.h>
 
+#include "s3w_edition.h"
 #include "shell_priv.h"
 #include "ui_overlay.h"
 #include "ui_theme.h"
@@ -20,6 +21,13 @@
 
 // Actions open an app instead of toggling.
 #define ACTIONS ((1u << SHELL_QS_FLASHLIGHT) | (1u << SHELL_QS_FIND_PHONE) | (1u << SHELL_QS_SETTINGS))
+
+// Buttons the Community edition does not show (docs/10 §3): the grid keeps the others in order.
+#if S3W_EDITION_PRO
+#define HIDDEN 0u
+#else
+#define HIDDEN ((1u << SHELL_QS_WIFI) | (1u << SHELL_QS_FLASHLIGHT) | (1u << SHELL_QS_FIND_PHONE))
+#endif
 
 static const struct {
     const char *name;
@@ -107,6 +115,9 @@ static void show_state(qs_t *q)
     for (int i = 0; i < SHELL_QS_COUNT; i++) {
         const uint32_t bit = 1u << i;
         lv_obj_t *b = q->btn[i];
+        if (b == NULL) {
+            continue; // HIDDEN
+        }
         if (q->st.on & bit & ~ACTIONS) {
             lv_obj_add_state(b, LV_STATE_CHECKED);
         } else {
@@ -218,6 +229,9 @@ static void qs_create(ui_screen_t *s, lv_obj_t *root, const void *args)
     lv_obj_set_style_pad_column(grid, GRID_GAP_X, 0);
     lv_obj_set_style_pad_row(grid, GRID_GAP_Y, 0);
     for (int i = 0; i < SHELL_QS_COUNT; i++) {
+        if (HIDDEN & (1u << i)) {
+            continue;
+        }
         lv_obj_t *b = lv_obj_create(grid);
         lv_obj_remove_style_all(b);
         lv_obj_add_style(b, &s_btn, 0);

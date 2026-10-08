@@ -1,5 +1,0 @@
-# A tap on a tile opens its app (toast while it does not exist).
-swipe 350 250 60 250
-wait 400
-tap 205 260
-wait 300

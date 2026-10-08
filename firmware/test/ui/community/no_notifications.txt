@@ -1,0 +1,3 @@
+# P12-01 Community: no notification panel; a swipe up on the face leaves the face.
+swipe 205 400 205 120
+wait 400

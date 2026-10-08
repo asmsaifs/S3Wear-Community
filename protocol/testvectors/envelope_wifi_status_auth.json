@@ -1,0 +1,9 @@
+{
+  "wifiStatus": {
+    "on": true,
+    "state": 1,
+    "error": 2,
+    "errorSsid": "Office",
+    "saved": ["Office"]
+  }
+}

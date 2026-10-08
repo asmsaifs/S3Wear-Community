@@ -1,9 +1,0 @@
-# BACK leaves the picker without changing the face. Golden equals home.png.
-hold 205 200
-wait 400
-swipe 330 238 80 238
-wait 200
-key back
-wait 400
-face-is digital
-config-is -

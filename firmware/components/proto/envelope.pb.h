@@ -23,6 +23,152 @@ typedef enum _s3w_v1_StatusCode {
     s3w_v1_StatusCode_STATUS_LOW_BATTERY = 7
 } s3w_v1_StatusCode;
 
+/* Values for NotificationPosted.category. A plain uint32 on the wire, like
+ TransferBegin.kind: a category unknown to the watch shows as OTHER. */
+typedef enum _s3w_v1_NotificationCategory {
+    s3w_v1_NotificationCategory_NOTIF_OTHER = 0,
+    s3w_v1_NotificationCategory_NOTIF_MSG = 1,
+    s3w_v1_NotificationCategory_NOTIF_EMAIL = 2,
+    s3w_v1_NotificationCategory_NOTIF_SOCIAL = 3,
+    s3w_v1_NotificationCategory_NOTIF_CALL = 4,
+    s3w_v1_NotificationCategory_NOTIF_ALARM = 5,
+    s3w_v1_NotificationCategory_NOTIF_EVENT = 6,
+    s3w_v1_NotificationCategory_NOTIF_PROMO = 7,
+    s3w_v1_NotificationCategory_NOTIF_SYSTEM = 8
+} s3w_v1_NotificationCategory;
+
+/* Values for FindDevice.target. A plain uint32 on the wire, like TransferBegin.kind. */
+typedef enum _s3w_v1_FindTarget {
+    s3w_v1_FindTarget_FIND_WATCH = 0,
+    s3w_v1_FindTarget_FIND_PHONE = 1
+} s3w_v1_FindTarget;
+
+/* Values for CallState.state. A plain uint32 on the wire, like TransferBegin.kind. */
+typedef enum _s3w_v1_CallPhase {
+    s3w_v1_CallPhase_CALL_IDLE = 0, /* no call: the call in call_id has ended */
+    s3w_v1_CallPhase_CALL_RINGING = 1, /* an incoming call rings */
+    s3w_v1_CallPhase_CALL_ACTIVE = 2 /* answered, or dialled on the phone (off hook) */
+} s3w_v1_CallPhase;
+
+/* Values for CallCommand.cmd. A plain uint32 on the wire: the phone answers a command it does
+ not know with STATUS_INVALID. */
+typedef enum _s3w_v1_CallCmd {
+    s3w_v1_CallCmd_CALL_ANSWER = 0, /* RINGING */
+    s3w_v1_CallCmd_CALL_DECLINE = 1, /* RINGING */
+    s3w_v1_CallCmd_CALL_SILENCE = 2, /* RINGING: stop the phone's ringtone; the call keeps ringing */
+    s3w_v1_CallCmd_CALL_END = 3 /* ACTIVE (hang up) */
+} s3w_v1_CallCmd;
+
+/* Values for MediaCommand.cmd. A plain uint32 on the wire, like TransferBegin.kind: the phone
+ answers a command it does not know with STATUS_INVALID. */
+typedef enum _s3w_v1_MediaCmd {
+    s3w_v1_MediaCmd_MEDIA_PLAY = 0,
+    s3w_v1_MediaCmd_MEDIA_PAUSE = 1,
+    s3w_v1_MediaCmd_MEDIA_NEXT = 2,
+    s3w_v1_MediaCmd_MEDIA_PREV = 3,
+    s3w_v1_MediaCmd_MEDIA_VOL_UP = 4,
+    s3w_v1_MediaCmd_MEDIA_VOL_DOWN = 5,
+    s3w_v1_MediaCmd_MEDIA_SET_VOL = 6, /* value = volume, 0..volume_max */
+    s3w_v1_MediaCmd_MEDIA_SEEK = 7 /* value = position in ms */
+} s3w_v1_MediaCmd;
+
+/* Values for the weather condition fields. A plain uint32 on the wire, like TransferBegin.kind: a
+ condition unknown to the watch shows as cloudy. The phone maps its source's codes to these
+ (Open-Meteo WMO codes: docs/07 §4 "Weather"). */
+typedef enum _s3w_v1_WeatherCondition {
+    s3w_v1_WeatherCondition_WEATHER_CLEAR = 0,
+    s3w_v1_WeatherCondition_WEATHER_CLOUDY = 1, /* overcast */
+    s3w_v1_WeatherCondition_WEATHER_RAIN = 2, /* drizzle, rain, showers */
+    s3w_v1_WeatherCondition_WEATHER_SNOW = 3, /* snow, snow showers, sleet */
+    s3w_v1_WeatherCondition_WEATHER_STORM = 4, /* thunderstorm */
+    s3w_v1_WeatherCondition_WEATHER_FOG = 5,
+    s3w_v1_WeatherCondition_WEATHER_PARTLY_CLOUDY = 6 /* mainly clear, partly cloudy */
+} s3w_v1_WeatherCondition;
+
+/* Values for AppCommand.cmd. A plain uint32 on the wire, like TransferBegin.kind. */
+typedef enum _s3w_v1_AppCmd {
+    s3w_v1_AppCmd_APP_CMD_UNINSTALL = 0, /* phone → watch request: remove app_id and its data */
+    s3w_v1_AppCmd_APP_CMD_RESULT = 1 /* watch → phone event: an install or uninstall of app_id ended */
+} s3w_v1_AppCmd;
+
+/* Values for HttpProxyRequest.method. A plain uint32 on the wire, like TransferBegin.kind. */
+typedef enum _s3w_v1_HttpMethod {
+    s3w_v1_HttpMethod_HTTP_GET = 0,
+    s3w_v1_HttpMethod_HTTP_POST = 1
+} s3w_v1_HttpMethod;
+
+/* Values for HttpProxyResponse.error. */
+typedef enum _s3w_v1_HttpError {
+    s3w_v1_HttpError_HTTP_ERR_NONE = 0,
+    s3w_v1_HttpError_HTTP_ERR_NETWORK = 1, /* no connection, DNS, TLS, refused */
+    s3w_v1_HttpError_HTTP_ERR_TIMEOUT = 2, /* no complete answer within the phone's timeout */
+    s3w_v1_HttpError_HTTP_ERR_DENIED = 3, /* the phone refuses (proxy off, scheme or address not allowed) */
+    s3w_v1_HttpError_HTTP_ERR_INVALID = 4 /* bad URL or method */
+} s3w_v1_HttpError;
+
+/* Values for TransferBegin.kind. A plain uint32 on the wire so a kind unknown to
+ an older peer is still delivered (the receiver answers UNSUPPORTED). */
+typedef enum _s3w_v1_TransferKind {
+    s3w_v1_TransferKind_TRANSFER_APP = 0,
+    s3w_v1_TransferKind_TRANSFER_FACE = 1,
+    s3w_v1_TransferKind_TRANSFER_OTA = 2,
+    s3w_v1_TransferKind_TRANSFER_MEMO_UP = 3,
+    s3w_v1_TransferKind_TRANSFER_COREDUMP_UP = 4,
+    s3w_v1_TransferKind_TRANSFER_WALLPAPER = 5,
+    s3w_v1_TransferKind_TRANSFER_ASSET = 6,
+    s3w_v1_TransferKind_TRANSFER_SCREENSHOT_UP = 7
+} s3w_v1_TransferKind;
+
+/* Values for WifiConfig.op. A plain uint32 on the wire, like TransferBegin.kind. */
+typedef enum _s3w_v1_WifiOp {
+    s3w_v1_WifiOp_WIFI_OP_GET = 0, /* change nothing: the reply carries the WifiStatus */
+    s3w_v1_WifiOp_WIFI_OP_ADD = 1, /* save ssid + password (replacing a saved network with that ssid), clear the error, turn Wi-Fi on, join it */
+    s3w_v1_WifiOp_WIFI_OP_FORGET = 2, /* remove the saved network ssid (and leave it if it is the one joined) */
+    s3w_v1_WifiOp_WIFI_OP_SET_ON = 3 /* the watch's Wi-Fi switch: on */
+} s3w_v1_WifiOp;
+
+/* Values for WifiStatus.state. */
+typedef enum _s3w_v1_WifiState {
+    s3w_v1_WifiState_WIFI_STATE_OFF = 0,
+    s3w_v1_WifiState_WIFI_STATE_IDLE = 1, /* on, not joined: no saved network in range (scans again later) */
+    s3w_v1_WifiState_WIFI_STATE_CONNECTING = 2, /* joining ssid */
+    s3w_v1_WifiState_WIFI_STATE_CONNECTED = 3 /* joined ssid and has an address */
+} s3w_v1_WifiState;
+
+/* Values for WifiStatus.error. */
+typedef enum _s3w_v1_WifiError {
+    s3w_v1_WifiError_WIFI_ERR_NONE = 0,
+    s3w_v1_WifiError_WIFI_ERR_NOT_FOUND = 1, /* no saved network in range */
+    s3w_v1_WifiError_WIFI_ERR_AUTH = 2, /* the network refused the password */
+    s3w_v1_WifiError_WIFI_ERR_NO_IP = 3, /* joined, but got no address */
+    s3w_v1_WifiError_WIFI_ERR_OTHER = 4
+} s3w_v1_WifiError;
+
+/* Values for HaConfig.Entity.kind. A plain uint32 on the wire, like TransferBegin.kind: a kind
+ unknown to the watch shows as a sensor (read only). */
+typedef enum _s3w_v1_HaKind {
+    s3w_v1_HaKind_HA_KIND_SENSOR = 0, /* a value to read: sensor, binary_sensor, weather, ... */
+    s3w_v1_HaKind_HA_KIND_TOGGLE = 1, /* on / off: light, switch, fan, input_boolean, ... (HA_OP_TOGGLE) */
+    s3w_v1_HaKind_HA_KIND_RUN = 2 /* scene, script, button, input_button (HA_OP_RUN) */
+} s3w_v1_HaKind;
+
+/* Values for HaCommand.op. */
+typedef enum _s3w_v1_HaOp {
+    s3w_v1_HaOp_HA_OP_REFRESH = 0, /* read the states (entity_id, or every entity when empty) */
+    s3w_v1_HaOp_HA_OP_TOGGLE = 1, /* homeassistant.toggle */
+    s3w_v1_HaOp_HA_OP_RUN = 2 /* scene / script .turn_on, button / input_button .press */
+} s3w_v1_HaOp;
+
+/* Values for LicenseStatus.result: license_status_t of the watch's check. */
+typedef enum _s3w_v1_LicenseResult {
+    s3w_v1_LicenseResult_LICENSE_RESULT_OK = 0,
+    s3w_v1_LicenseResult_LICENSE_RESULT_NONE = 1, /* no licence installed */
+    s3w_v1_LicenseResult_LICENSE_RESULT_BAD_FORMAT = 2, /* wrong size, magic, format, edition, kind or reserved bytes */
+    s3w_v1_LicenseResult_LICENSE_RESULT_BAD_SIGNATURE = 3, /* not signed by the licence key */
+    s3w_v1_LicenseResult_LICENSE_RESULT_WRONG_MAC = 4, /* made for another watch */
+    s3w_v1_LicenseResult_LICENSE_RESULT_EXPIRED = 5 /* trial past its expiry */
+} s3w_v1_LicenseResult;
+
 /* Struct definitions */
 typedef struct _s3w_v1_Status {
     int32_t code; /* StatusCode */
@@ -69,6 +215,408 @@ typedef struct _s3w_v1_Ack {
     char dummy_field;
 } s3w_v1_Ack;
 
+/* Watch → phone event: after each TimeSync (session start) and whenever the
+ battery level, charging or USB power changes while the link is up. */
+typedef struct _s3w_v1_DeviceStatus {
+    uint32_t battery_pct; /* 0-100 */
+    bool charging;
+    bool usb_power; /* VBUS present (charging or full) */
+    uint32_t storage_free_kb; /* internal flash file system */
+    uint32_t storage_total_kb;
+    bool time_valid; /* false: the watch shows "--:--" */
+} s3w_v1_DeviceStatus;
+
+/* One button the watch shows under the text. */
+typedef struct _s3w_v1_NotificationPosted_Action {
+    uint32_t id; /* index on the phone; echoed in NotificationAction.action_id */
+    char title[32]; /* ≤ 31 bytes */
+    bool is_reply; /* needs text (quick replies, P6-05); the watch hides it until then */
+} s3w_v1_NotificationPosted_Action;
+
+/* Phone → watch event: a notification was posted or updated (same nid = update). */
+typedef struct _s3w_v1_NotificationPosted {
+    uint32_t nid; /* phone-assigned, stable for the notification's key; non-zero */
+    char app_id[128]; /* package name, ≤ 127 bytes */
+    char app_name[64]; /* ≤ 63 bytes */
+    uint32_t icon_hash; /* the watch asks for an AppIcon it does not have; 0 = no icon */
+    char title[129]; /* ≤ 128 bytes */
+    char text[1025]; /* ≤ 1024 bytes */
+    int64_t when_ms; /* Unix ms */
+    uint32_t category; /* NotificationCategory */
+    pb_size_t actions_count;
+    s3w_v1_NotificationPosted_Action actions[3]; /* ≤ 3 */
+    bool silent; /* an update that must not sound, wake or show a banner */
+    uint32_t text_bitmap_id; /* non-zero: TextBitmap strips with this id follow (glyphs the watch lacks) */
+} s3w_v1_NotificationPosted;
+
+/* Phone → watch event: the notification is gone from the phone. */
+typedef struct _s3w_v1_NotificationRemoved {
+    uint32_t nid;
+} s3w_v1_NotificationRemoved;
+
+/* Watch → phone: the user tapped an action (a request; the reply's status says whether the
+ phone could run it) or dismissed the notification (dismiss = true; an event). */
+typedef struct _s3w_v1_NotificationAction {
+    uint32_t nid;
+    uint32_t action_id; /* NotificationPosted.Action.id; ignored with dismiss */
+    char reply_text[256]; /* ≤ 255 bytes; for is_reply actions (P6-05) */
+    bool dismiss;
+} s3w_v1_NotificationAction;
+
+typedef PB_BYTES_ARRAY_T(6912) s3w_v1_AppIcon_pixels_t;
+/* App icon (docs/06 §5). Watch → phone request with only icon_hash set; the phone replies
+ with the pixels, or STATUS_INVALID if it no longer knows the hash. */
+typedef struct _s3w_v1_AppIcon {
+    uint32_t icon_hash;
+    uint32_t width; /* 48 */
+    uint32_t height; /* 48 */
+    s3w_v1_AppIcon_pixels_t pixels; /* RGB565A8: width×height RGB565 little-endian, then width×height alpha; ≤ 6912 bytes */
+} s3w_v1_AppIcon;
+
+typedef PB_BYTES_ARRAY_T(8192) s3w_v1_TextBitmap_pixels_t;
+/* Phone → watch event: one horizontal strip of a notification's title and text rendered on the
+ phone (text_bitmap_id), for scripts the watch fonts lack. Strips arrive in order, top first.
+ As Envelope.media_text_bitmap: a media session's title (white) and artist (dimmer) on one
+ line each, 330 px wide, ≤ 80 px high (MediaState.text_bitmap_id). */
+typedef struct _s3w_v1_TextBitmap {
+    uint32_t bitmap_id; /* NotificationPosted.text_bitmap_id */
+    uint32_t width; /* px, even, ≤ 360 */
+    uint32_t height; /* px of the whole bitmap, ≤ 400 */
+    uint32_t y; /* first row of this strip */
+    s3w_v1_TextBitmap_pixels_t pixels; /* 4 bpp coverage, two pixels per byte (high nibble first), rows of width / 2 bytes; ≤ 8192 bytes */
+} s3w_v1_TextBitmap;
+
+/* Find my phone / find my watch (docs/06 §4 "Find"). To the device that rings: a request,
+ ring = true starts it (reply Ack; it stops by itself after 60 s), ring = false stops it.
+ From the device that rings: an event with ring = false when it stopped on its own (the user
+ stopped it there, or the 60 s ran out), so the other side's screen follows. */
+typedef struct _s3w_v1_FindDevice {
+    uint32_t target; /* FindTarget: the device that rings */
+    bool ring;
+} s3w_v1_FindDevice;
+
+/* Phone → watch event: the phone's call (docs/06 §4 "Calls"). Sent when a call starts ringing,
+ is answered or dialled, ends, and when the caller's name or number becomes known; at session
+ start only while a call is on. Audio stays on the phone. */
+typedef struct _s3w_v1_CallState {
+    uint32_t call_id; /* phone-assigned, non-zero, new for every call; IDLE: the call that ended */
+    uint32_t state; /* CallPhase */
+    char name[64]; /* contact name, ≤ 63 bytes; empty = not a contact, or no contacts access */
+    char number[32]; /* ≤ 31 bytes; empty = withheld or unknown */
+    int64_t since_ms; /* Unix ms the state began (ACTIVE: when answered, for the call timer) */
+    bool missed; /* IDLE: the call rang and was not answered or declined from the watch */
+    bool can_control; /* the phone may answer and end calls (the user allowed it) */
+    bool outgoing; /* ACTIVE: dialled on the phone */
+} s3w_v1_CallState;
+
+/* Watch → phone request: control the call. The reply's status: OK; INVALID (call_id is not the
+ current call, or the command does not fit its state); DENIED (the user did not allow call
+ control on the phone). The phone sends a new CallState with the result. */
+typedef struct _s3w_v1_CallCommand {
+    uint32_t call_id; /* CallState.call_id */
+    uint32_t cmd; /* CallCmd */
+} s3w_v1_CallCommand;
+
+/* Phone → watch event: the media session the phone controls (docs/06 §4 "Media"). Sent at
+ session start and whenever something the watch shows changes (not for the position moving on
+ while playing; the watch advances it itself). app empty = no media session on the phone. */
+typedef struct _s3w_v1_MediaState {
+    char app[64]; /* player name, ≤ 63 bytes; empty = nothing to control */
+    char title[129]; /* ≤ 128 bytes */
+    char artist[129]; /* ≤ 128 bytes */
+    char album[129]; /* ≤ 128 bytes */
+    bool playing;
+    uint32_t position_ms; /* when sent; while playing the watch adds the time since it arrived */
+    uint32_t duration_ms; /* 0 = unknown (a live stream) */
+    uint32_t volume; /* the player's volume on the phone, 0..volume_max */
+    uint32_t volume_max; /* 0 = volume cannot be changed */
+    uint32_t artwork_hash; /* MediaArtwork to ask for; 0 = no artwork */
+    /* Non-zero: title and artist drawn on the phone follow as media_text_bitmap strips with this
+ bitmap_id (glyphs the watch fonts lack; only to a watch with "media.bitmap_text"). */
+    uint32_t text_bitmap_id;
+} s3w_v1_MediaState;
+
+/* Watch → phone request: control the media session. The reply's status: OK, or INVALID (no
+ session, or the player cannot do it). The phone sends a new MediaState with the result. */
+typedef struct _s3w_v1_MediaCommand {
+    uint32_t cmd; /* MediaCmd */
+    uint32_t value; /* MEDIA_SET_VOL: volume; MEDIA_SEEK: position ms */
+} s3w_v1_MediaCommand;
+
+typedef PB_BYTES_ARRAY_T(8192) s3w_v1_MediaArtwork_jpeg_t;
+/* Album art (docs/06 §4 "Media"). Watch → phone request with only artwork_hash set; the phone
+ replies with the picture, or STATUS_INVALID if it no longer has that hash. */
+typedef struct _s3w_v1_MediaArtwork {
+    uint32_t artwork_hash; /* CRC-32 of jpeg (1 if 0) */
+    uint32_t width; /* 120 */
+    uint32_t height; /* 120 */
+    s3w_v1_MediaArtwork_jpeg_t jpeg; /* baseline JPEG (not progressive), ≤ 8192 bytes */
+} s3w_v1_MediaArtwork;
+
+/* Conditions now. */
+typedef struct _s3w_v1_WeatherUpdate_Current {
+    int32_t temp_dc; /* 0.1 °C */
+    int32_t feels_dc; /* apparent temperature, 0.1 °C */
+    uint32_t condition; /* WeatherCondition */
+    bool is_day; /* between sunrise and sunset (sun or moon icon) */
+    uint32_t humidity_pct; /* 0-100 */
+    uint32_t wind_kmh;
+    uint32_t uv_x10; /* UV index × 10 */
+    uint32_t aqi; /* US AQI; 0 = not available */
+} s3w_v1_WeatherUpdate_Current;
+
+/* One hour of the forecast. */
+typedef struct _s3w_v1_WeatherUpdate_Hour {
+    uint32_t time; /* Unix seconds, start of the hour */
+    int32_t temp_dc; /* 0.1 °C */
+    uint32_t condition; /* WeatherCondition */
+    bool is_day;
+    uint32_t precip_pct; /* chance of precipitation, 0-100 */
+} s3w_v1_WeatherUpdate_Hour;
+
+/* One day of the forecast. */
+typedef struct _s3w_v1_WeatherUpdate_Day {
+    uint32_t date; /* yyyymmdd, the local date at the place */
+    int32_t lo_dc; /* 0.1 °C */
+    int32_t hi_dc; /* 0.1 °C */
+    uint32_t condition; /* WeatherCondition */
+    uint32_t precip_pct; /* highest chance of precipitation, 0-100 */
+    uint32_t sunrise; /* Unix seconds; 0 = none that day (polar night or day) */
+    uint32_t sunset; /* Unix seconds; 0 = none */
+    uint32_t uv_max_x10; /* highest UV index × 10 */
+} s3w_v1_WeatherUpdate_Day;
+
+/* Phone → watch event: the forecast for the phone's place (docs/06 §4 "Weather"). Sent at session
+ start (the last one fetched) and after every fetch. Temperatures are in tenths of a degree
+ Celsius; the watch converts for display. */
+typedef struct _s3w_v1_WeatherUpdate {
+    int64_t fetched_ms; /* Unix ms when the phone got the forecast; > 0 */
+    char location[64]; /* place name, ≤ 63 bytes; empty = unknown */
+    bool has_current;
+    s3w_v1_WeatherUpdate_Current current;
+    pb_size_t hourly_count;
+    s3w_v1_WeatherUpdate_Hour hourly[24]; /* ≤ 24, ascending, from the hour fetched_ms falls in */
+    pb_size_t daily_count;
+    s3w_v1_WeatherUpdate_Day daily[7]; /* ≤ 7, ascending, from the day fetched_ms falls in */
+} s3w_v1_WeatherUpdate;
+
+/* One occurrence of an event. */
+typedef struct _s3w_v1_CalendarUpdate_Event {
+    uint32_t id; /* stable for the occurrence (event and start), non-zero */
+    char title[64]; /* ≤ 63 bytes */
+    uint32_t start; /* Unix seconds; an all-day event: local midnight of its first day */
+    uint32_t end; /* Unix seconds, ≥ start; all-day: local midnight after its last day */
+    bool all_day;
+    char location[48]; /* ≤ 47 bytes */
+    uint32_t color; /* 0xRRGGBB of the calendar or event; 0 = default */
+} s3w_v1_CalendarUpdate_Event;
+
+/* Phone → watch event: the phone's agenda for the next 48 hours (docs/06 §4 "Calendar"). Sent at
+ session start and whenever it changes (an event added, moved or removed, or one entering the
+ window). Replaces the watch's whole list. */
+typedef struct _s3w_v1_CalendarUpdate {
+    int64_t synced_ms; /* Unix ms when the phone read its calendar; > 0 */
+    pb_size_t events_count;
+    s3w_v1_CalendarUpdate_Event events[16]; /* ≤ 16, by start: not ended at synced_ms, starting within 48 h */
+} s3w_v1_CalendarUpdate;
+
+typedef struct _s3w_v1_AppList_App {
+    char id[48]; /* reverse-DNS, ≤ 47 bytes */
+    char name[32]; /* ≤ 31 bytes */
+    char version[16]; /* MAJOR.MINOR.PATCH, ≤ 15 bytes */
+    char category[8]; /* "app" | "game" | "tool" | "health", ≤ 7 bytes */
+    bool system; /* preinstalled: cannot be uninstalled or updated */
+} s3w_v1_AppList_App;
+
+/* Mini apps on the watch (docs/05 §7, docs/06 §4 "Apps", P8-09).
+
+ Phone → watch request with no apps: the watch replies with its list. Watch → phone event: the
+ list changed (an install, update or uninstall, from either side). Preinstalled apps come first. */
+typedef struct _s3w_v1_AppList {
+    pb_size_t apps_count;
+    s3w_v1_AppList_App apps[64]; /* ≤ 64 */
+    uint32_t storage_free_kb; /* the watch's flash file system */
+    uint32_t api_level; /* the highest mini app API level the firmware runs */
+} s3w_v1_AppList;
+
+/* Phone → watch request before the package's TRANSFER_APP: the watch checks it can take it
+ (STATUS_OK) or refuses: BUSY (another install, uninstall or transfer runs), NO_SPACE, DENIED (a
+ preinstalled app's id), INVALID (bad id, size, sha256). The transfer that follows must carry the
+ same sha256; the install's outcome comes as an AppCommand APP_CMD_RESULT event. */
+typedef struct _s3w_v1_AppInstallBegin {
+    char app_id[48]; /* ≤ 47 bytes */
+    char version[16]; /* ≤ 15 bytes */
+    uint32_t size; /* package bytes, ≤ 4 MB */
+    pb_byte_t sha256[32]; /* 32 bytes, of the package */
+} s3w_v1_AppInstallBegin;
+
+/* APP_CMD_UNINSTALL: a request; the reply's status says whether it started (INVALID: not
+ installed, DENIED: preinstalled, BUSY). The outcome follows as APP_CMD_RESULT.
+ APP_CMD_RESULT: an event after every install or uninstall the phone or the watch started.
+ result OK, or the failure: DENIED = the user declined on the watch, INVALID = the package
+ failed its checks, NO_SPACE, INTERNAL; result.message is the watch's reason (for logs). */
+typedef struct _s3w_v1_AppCommand {
+    uint32_t cmd; /* AppCmd */
+    char app_id[48]; /* ≤ 47 bytes */
+    bool install; /* RESULT: of an install (else an uninstall) */
+    bool has_result;
+    s3w_v1_Status result; /* RESULT */
+    char version[16]; /* RESULT of an install: the version now installed, ≤ 15 bytes */
+} s3w_v1_AppCommand;
+
+typedef PB_BYTES_ARRAY_T(4096) s3w_v1_HttpProxyRequest_body_t;
+/* Watch → phone event: a mini app's HTTP request (docs/05 §4 `phone.http`, docs/06 §4 "HTTP
+ proxy"). The watch has checked the app's permission and domain allowlist. The phone answers
+ with HttpProxyResponse events carrying the same request_id. */
+typedef struct _s3w_v1_HttpProxyRequest {
+    uint32_t request_id; /* watch-assigned, non-zero */
+    char app_id[48]; /* ≤ 47 bytes, for the phone's log */
+    uint32_t method; /* HttpMethod */
+    char url[512]; /* http:// or https://, ≤ 511 bytes */
+    char content_type[64]; /* POST body type, ≤ 63 bytes */
+    s3w_v1_HttpProxyRequest_body_t body; /* POST body, ≤ 4096 bytes */
+    uint32_t max_bytes; /* response body cap, 1..65536: the phone sends at most this much */
+} s3w_v1_HttpProxyRequest;
+
+typedef PB_BYTES_ARRAY_T(8192) s3w_v1_HttpProxyResponse_body_t;
+/* Phone → watch event: one part of the answer to an HttpProxyRequest, in order of offset. The
+ last part has last = true; an error comes as a single part with error != 0 and last = true. */
+typedef struct _s3w_v1_HttpProxyResponse {
+    uint32_t request_id;
+    uint32_t status; /* HTTP status code; 0 with an error */
+    uint32_t error; /* HttpError */
+    uint32_t offset; /* position of body in the whole response body */
+    s3w_v1_HttpProxyResponse_body_t body; /* ≤ 8192 bytes */
+    bool last;
+    uint32_t total; /* response body bytes in all (≤ max_bytes); the same on every part */
+    bool truncated; /* the server's body was longer than max_bytes */
+} s3w_v1_HttpProxyResponse;
+
+/* Starts a bulk transfer (docs/06 §6); a request, answered with TransferStatus. */
+typedef struct _s3w_v1_TransferBegin {
+    uint32_t transfer_id;
+    uint32_t kind; /* TransferKind */
+    uint32_t size; /* bytes */
+    pb_byte_t sha256[32]; /* 32 bytes; also the resume key */
+    char name[64]; /* ≤ 63 bytes */
+    uint32_t window; /* chunks per ack, 1..64 */
+    uint32_t chunk_size; /* data bytes per chunk */
+} s3w_v1_TransferBegin;
+
+/* Window ack and resume point: the receiver has every byte below next_offset.
+ As the reply to TransferBegin, status != OK refuses the transfer. */
+typedef struct _s3w_v1_TransferStatus {
+    uint32_t transfer_id;
+    uint32_t next_offset;
+    bool has_status;
+    s3w_v1_Status status;
+} s3w_v1_TransferStatus;
+
+/* Receiver verified (or rejected) the whole transfer; closes it. */
+typedef struct _s3w_v1_TransferEnd {
+    uint32_t transfer_id;
+    bool verified;
+    bool has_status;
+    s3w_v1_Status status;
+} s3w_v1_TransferEnd;
+
+/* Phone → watch request. The reply's body is the WifiStatus after the change; its status is OK,
+ INVALID (bad ssid or password length, FORGET of a network not saved), NO_SPACE (ADD of a sixth
+ network: forget one first) or INTERNAL. Joining takes seconds: its outcome comes as WifiStatus
+ events. */
+typedef struct _s3w_v1_WifiConfig {
+    uint32_t op; /* WifiOp */
+    char ssid[33]; /* ADD, FORGET: 1-32 bytes */
+    char password[64]; /* ADD: WPA2/WPA3 passphrase, 8-63 bytes; empty for an open network */
+    bool on; /* SET_ON */
+} s3w_v1_WifiConfig;
+
+/* The watch's Wi-Fi: the reply to every WifiConfig, and a watch → phone event whenever it
+ changes while the link is up (switch, state, network, error, saved list). */
+typedef struct _s3w_v1_WifiStatus {
+    bool on; /* the Wi-Fi switch */
+    uint32_t state; /* WifiState */
+    char ssid[33]; /* CONNECTING, CONNECTED: the network, ≤ 32 bytes */
+    int32_t rssi; /* CONNECTED: dBm */
+    char ip[16]; /* CONNECTED: IPv4 address, dotted, ≤ 15 bytes */
+    uint32_t error; /* WifiError of the last attempt; NONE once joined */
+    char error_ssid[33]; /* the network error is about (empty for NOT_FOUND), ≤ 32 bytes */
+    pb_size_t saved_count;
+    char saved[5][33]; /* saved networks, ≤ 5, most recently added first; each ≤ 32 bytes */
+} s3w_v1_WifiStatus;
+
+typedef struct _s3w_v1_HaConfig_Entity {
+    char entity_id[64]; /* "light.kitchen", ≤ 63 bytes */
+    char name[32]; /* shown on the watch, ≤ 31 bytes */
+    uint32_t kind; /* HaKind */
+} s3w_v1_HaConfig_Entity;
+
+/* Phone → watch request, on every connect and whenever the user changes it: the server, its
+ long-lived access token and the entities to show, in order. An empty url forgets Home
+ Assistant (entities and token too). Reply: Ack, OK or INVALID (url not http(s)://, a missing
+ token or entity id, more than 12 entities, an entity id without a domain). */
+typedef struct _s3w_v1_HaConfig {
+    char url[128]; /* "http://192.168.1.10:8123", no path, ≤ 127 bytes */
+    char token[256]; /* long-lived access token, ≤ 255 bytes */
+    pb_size_t entities_count;
+    s3w_v1_HaConfig_Entity entities[12]; /* ≤ 12 */
+} s3w_v1_HaConfig;
+
+/* Watch → phone request while the watch is not on Wi-Fi (or its own call to the server failed):
+ the phone calls Home Assistant with its copy of the configuration and replies HaStates with the
+ entity's new state (all of them for a REFRESH without entity_id). Reply status: OK; INVALID (an
+ entity the phone's configuration does not have, none configured, or the server answered with an
+ HTTP error); DENIED (the server refused the token); INTERNAL (the server could not be reached);
+ UNSUPPORTED (an unknown op, or a phone app without the relay). */
+typedef struct _s3w_v1_HaCommand {
+    uint32_t op; /* HaOp */
+    char entity_id[64]; /* ≤ 63 bytes */
+} s3w_v1_HaCommand;
+
+typedef struct _s3w_v1_HaStates_State {
+    char entity_id[64]; /* ≤ 63 bytes */
+    char state[32]; /* "on", "off", "21.5", "unavailable", ...; ≤ 31 bytes, cut on a code point */
+    char unit[16]; /* attributes.unit_of_measurement, ≤ 15 bytes */
+} s3w_v1_HaStates_State;
+
+/* The reply to HaCommand: entity states as Home Assistant reports them. */
+typedef struct _s3w_v1_HaStates {
+    pb_size_t states_count;
+    s3w_v1_HaStates_State states[12]; /* ≤ 12 */
+} s3w_v1_HaStates;
+
+/* Phone → watch request: capture the screen now and upload it as a TRANSFER_SCREENSHOT_UP (PNG,
+ named shot_YYYYMMDD_HHMMSS.png). Reply Ack: OK (the transfer follows within seconds); BUSY (one
+ is being captured or sent); INVALID (the screen is off); UNSUPPORTED (older firmware answers it
+ for the whole message). */
+typedef struct _s3w_v1_ScreenshotRequest {
+    char dummy_field;
+} s3w_v1_ScreenshotRequest;
+
+typedef PB_BYTES_ARRAY_T(128) s3w_v1_LicenseInstall_license_t;
+/* Phone → watch request: store this licence (the 112-byte license.bin the licence server signed,
+ docs/10 §4) as /flash/license.bin. The watch checks it first (format, signature, this watch's
+ MAC, expiry) and keeps the old one when it fails. An empty license stores nothing and asks for
+ the current status. Reply: LicenseStatus, with Status OK (stored, or only asked), INVALID (not
+ stored: LicenseStatus.result says why), INTERNAL (the file could not be written), UNSUPPORTED
+ (Community firmware or older firmware answers it for the whole message). */
+typedef struct _s3w_v1_LicenseInstall {
+    s3w_v1_LicenseInstall_license_t license; /* 112 bytes, or empty; ≤ 128 */
+} s3w_v1_LicenseInstall;
+
+typedef PB_BYTES_ARRAY_T(6) s3w_v1_LicenseStatus_mac_t;
+typedef PB_BYTES_ARRAY_T(16) s3w_v1_LicenseStatus_order_t;
+/* The reply to LicenseInstall: the licence the watch has now (after an install, the new one). */
+typedef struct _s3w_v1_LicenseStatus {
+    uint32_t result; /* LicenseResult of the installed licence, or of the one just refused */
+    bool pro; /* Pro features are on */
+    uint32_t kind; /* 0 perpetual, 1 trial (valid unless result is NONE or BAD_FORMAT) */
+    int64_t issued; /* Unix s */
+    int64_t expires; /* Unix s, 0 = never */
+    s3w_v1_LicenseStatus_mac_t mac; /* this watch's base MAC (6 bytes), the one a licence must be made for */
+    s3w_v1_LicenseStatus_order_t order; /* the licence's order id (16 bytes) */
+} s3w_v1_LicenseStatus;
+
 /* Every control-channel message is one Envelope (docs/06 §3). */
 typedef struct _s3w_v1_Envelope {
     uint32_t id; /* sender-assigned; non-zero for requests, 0 for events */
@@ -81,6 +629,37 @@ typedef struct _s3w_v1_Envelope {
         s3w_v1_HelloAck hello_ack;
         s3w_v1_TimeSync time_sync;
         s3w_v1_Ack ack;
+        s3w_v1_DeviceStatus device_status;
+        s3w_v1_NotificationPosted notif_posted;
+        s3w_v1_NotificationRemoved notif_removed;
+        s3w_v1_NotificationAction notif_action;
+        s3w_v1_AppIcon app_icon;
+        s3w_v1_TextBitmap text_bitmap;
+        s3w_v1_CallState call_state;
+        s3w_v1_CallCommand call_command;
+        s3w_v1_MediaState media_state;
+        s3w_v1_MediaCommand media_command;
+        s3w_v1_MediaArtwork media_artwork;
+        s3w_v1_TextBitmap media_text_bitmap;
+        s3w_v1_WeatherUpdate weather;
+        s3w_v1_CalendarUpdate calendar;
+        s3w_v1_FindDevice find;
+        s3w_v1_AppList app_list;
+        s3w_v1_AppInstallBegin app_install;
+        s3w_v1_AppCommand app_cmd;
+        s3w_v1_HttpProxyRequest http_req;
+        s3w_v1_HttpProxyResponse http_resp;
+        s3w_v1_TransferBegin xfer_begin;
+        s3w_v1_TransferStatus xfer_status;
+        s3w_v1_TransferEnd xfer_end;
+        s3w_v1_WifiConfig wifi_config;
+        s3w_v1_WifiStatus wifi_status;
+        s3w_v1_HaConfig ha_config;
+        s3w_v1_HaCommand ha_command;
+        s3w_v1_HaStates ha_states;
+        s3w_v1_ScreenshotRequest screenshot;
+        s3w_v1_LicenseInstall license_install;
+        s3w_v1_LicenseStatus license_status;
     } body;
 } s3w_v1_Envelope;
 
@@ -93,6 +672,108 @@ extern "C" {
 #define _s3w_v1_StatusCode_MIN s3w_v1_StatusCode_STATUS_OK
 #define _s3w_v1_StatusCode_MAX s3w_v1_StatusCode_STATUS_LOW_BATTERY
 #define _s3w_v1_StatusCode_ARRAYSIZE ((s3w_v1_StatusCode)(s3w_v1_StatusCode_STATUS_LOW_BATTERY+1))
+
+#define _s3w_v1_NotificationCategory_MIN s3w_v1_NotificationCategory_NOTIF_OTHER
+#define _s3w_v1_NotificationCategory_MAX s3w_v1_NotificationCategory_NOTIF_SYSTEM
+#define _s3w_v1_NotificationCategory_ARRAYSIZE ((s3w_v1_NotificationCategory)(s3w_v1_NotificationCategory_NOTIF_SYSTEM+1))
+
+#define _s3w_v1_FindTarget_MIN s3w_v1_FindTarget_FIND_WATCH
+#define _s3w_v1_FindTarget_MAX s3w_v1_FindTarget_FIND_PHONE
+#define _s3w_v1_FindTarget_ARRAYSIZE ((s3w_v1_FindTarget)(s3w_v1_FindTarget_FIND_PHONE+1))
+
+#define _s3w_v1_CallPhase_MIN s3w_v1_CallPhase_CALL_IDLE
+#define _s3w_v1_CallPhase_MAX s3w_v1_CallPhase_CALL_ACTIVE
+#define _s3w_v1_CallPhase_ARRAYSIZE ((s3w_v1_CallPhase)(s3w_v1_CallPhase_CALL_ACTIVE+1))
+
+#define _s3w_v1_CallCmd_MIN s3w_v1_CallCmd_CALL_ANSWER
+#define _s3w_v1_CallCmd_MAX s3w_v1_CallCmd_CALL_END
+#define _s3w_v1_CallCmd_ARRAYSIZE ((s3w_v1_CallCmd)(s3w_v1_CallCmd_CALL_END+1))
+
+#define _s3w_v1_MediaCmd_MIN s3w_v1_MediaCmd_MEDIA_PLAY
+#define _s3w_v1_MediaCmd_MAX s3w_v1_MediaCmd_MEDIA_SEEK
+#define _s3w_v1_MediaCmd_ARRAYSIZE ((s3w_v1_MediaCmd)(s3w_v1_MediaCmd_MEDIA_SEEK+1))
+
+#define _s3w_v1_WeatherCondition_MIN s3w_v1_WeatherCondition_WEATHER_CLEAR
+#define _s3w_v1_WeatherCondition_MAX s3w_v1_WeatherCondition_WEATHER_PARTLY_CLOUDY
+#define _s3w_v1_WeatherCondition_ARRAYSIZE ((s3w_v1_WeatherCondition)(s3w_v1_WeatherCondition_WEATHER_PARTLY_CLOUDY+1))
+
+#define _s3w_v1_AppCmd_MIN s3w_v1_AppCmd_APP_CMD_UNINSTALL
+#define _s3w_v1_AppCmd_MAX s3w_v1_AppCmd_APP_CMD_RESULT
+#define _s3w_v1_AppCmd_ARRAYSIZE ((s3w_v1_AppCmd)(s3w_v1_AppCmd_APP_CMD_RESULT+1))
+
+#define _s3w_v1_HttpMethod_MIN s3w_v1_HttpMethod_HTTP_GET
+#define _s3w_v1_HttpMethod_MAX s3w_v1_HttpMethod_HTTP_POST
+#define _s3w_v1_HttpMethod_ARRAYSIZE ((s3w_v1_HttpMethod)(s3w_v1_HttpMethod_HTTP_POST+1))
+
+#define _s3w_v1_HttpError_MIN s3w_v1_HttpError_HTTP_ERR_NONE
+#define _s3w_v1_HttpError_MAX s3w_v1_HttpError_HTTP_ERR_INVALID
+#define _s3w_v1_HttpError_ARRAYSIZE ((s3w_v1_HttpError)(s3w_v1_HttpError_HTTP_ERR_INVALID+1))
+
+#define _s3w_v1_TransferKind_MIN s3w_v1_TransferKind_TRANSFER_APP
+#define _s3w_v1_TransferKind_MAX s3w_v1_TransferKind_TRANSFER_SCREENSHOT_UP
+#define _s3w_v1_TransferKind_ARRAYSIZE ((s3w_v1_TransferKind)(s3w_v1_TransferKind_TRANSFER_SCREENSHOT_UP+1))
+
+#define _s3w_v1_WifiOp_MIN s3w_v1_WifiOp_WIFI_OP_GET
+#define _s3w_v1_WifiOp_MAX s3w_v1_WifiOp_WIFI_OP_SET_ON
+#define _s3w_v1_WifiOp_ARRAYSIZE ((s3w_v1_WifiOp)(s3w_v1_WifiOp_WIFI_OP_SET_ON+1))
+
+#define _s3w_v1_WifiState_MIN s3w_v1_WifiState_WIFI_STATE_OFF
+#define _s3w_v1_WifiState_MAX s3w_v1_WifiState_WIFI_STATE_CONNECTED
+#define _s3w_v1_WifiState_ARRAYSIZE ((s3w_v1_WifiState)(s3w_v1_WifiState_WIFI_STATE_CONNECTED+1))
+
+#define _s3w_v1_WifiError_MIN s3w_v1_WifiError_WIFI_ERR_NONE
+#define _s3w_v1_WifiError_MAX s3w_v1_WifiError_WIFI_ERR_OTHER
+#define _s3w_v1_WifiError_ARRAYSIZE ((s3w_v1_WifiError)(s3w_v1_WifiError_WIFI_ERR_OTHER+1))
+
+#define _s3w_v1_HaKind_MIN s3w_v1_HaKind_HA_KIND_SENSOR
+#define _s3w_v1_HaKind_MAX s3w_v1_HaKind_HA_KIND_RUN
+#define _s3w_v1_HaKind_ARRAYSIZE ((s3w_v1_HaKind)(s3w_v1_HaKind_HA_KIND_RUN+1))
+
+#define _s3w_v1_HaOp_MIN s3w_v1_HaOp_HA_OP_REFRESH
+#define _s3w_v1_HaOp_MAX s3w_v1_HaOp_HA_OP_RUN
+#define _s3w_v1_HaOp_ARRAYSIZE ((s3w_v1_HaOp)(s3w_v1_HaOp_HA_OP_RUN+1))
+
+#define _s3w_v1_LicenseResult_MIN s3w_v1_LicenseResult_LICENSE_RESULT_OK
+#define _s3w_v1_LicenseResult_MAX s3w_v1_LicenseResult_LICENSE_RESULT_EXPIRED
+#define _s3w_v1_LicenseResult_ARRAYSIZE ((s3w_v1_LicenseResult)(s3w_v1_LicenseResult_LICENSE_RESULT_EXPIRED+1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -108,12 +789,88 @@ extern "C" {
 #define s3w_v1_HelloAck_init_default             {0, 0, "", "", "", 0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}, 0, 0, 0, 0}
 #define s3w_v1_TimeSync_init_default             {0, "", "", 0}
 #define s3w_v1_Ack_init_default                  {0}
+#define s3w_v1_DeviceStatus_init_default         {0, 0, 0, 0, 0, 0}
+#define s3w_v1_NotificationPosted_init_default   {0, "", "", 0, "", "", 0, 0, 0, {s3w_v1_NotificationPosted_Action_init_default, s3w_v1_NotificationPosted_Action_init_default, s3w_v1_NotificationPosted_Action_init_default}, 0, 0}
+#define s3w_v1_NotificationPosted_Action_init_default {0, "", 0}
+#define s3w_v1_NotificationRemoved_init_default  {0}
+#define s3w_v1_NotificationAction_init_default   {0, 0, "", 0}
+#define s3w_v1_AppIcon_init_default              {0, 0, 0, {0, {0}}}
+#define s3w_v1_TextBitmap_init_default           {0, 0, 0, 0, {0, {0}}}
+#define s3w_v1_FindDevice_init_default           {0, 0}
+#define s3w_v1_CallState_init_default            {0, 0, "", "", 0, 0, 0, 0}
+#define s3w_v1_CallCommand_init_default          {0, 0}
+#define s3w_v1_MediaState_init_default           {"", "", "", "", 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_MediaCommand_init_default         {0, 0}
+#define s3w_v1_MediaArtwork_init_default         {0, 0, 0, {0, {0}}}
+#define s3w_v1_WeatherUpdate_init_default        {0, "", false, s3w_v1_WeatherUpdate_Current_init_default, 0, {s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default, s3w_v1_WeatherUpdate_Hour_init_default}, 0, {s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default, s3w_v1_WeatherUpdate_Day_init_default}}
+#define s3w_v1_WeatherUpdate_Current_init_default {0, 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_WeatherUpdate_Hour_init_default   {0, 0, 0, 0, 0}
+#define s3w_v1_WeatherUpdate_Day_init_default    {0, 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_CalendarUpdate_init_default       {0, 0, {s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default, s3w_v1_CalendarUpdate_Event_init_default}}
+#define s3w_v1_CalendarUpdate_Event_init_default {0, "", 0, 0, 0, "", 0}
+#define s3w_v1_AppList_init_default              {0, {s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default, s3w_v1_AppList_App_init_default}, 0, 0}
+#define s3w_v1_AppList_App_init_default          {"", "", "", "", 0}
+#define s3w_v1_AppInstallBegin_init_default      {"", "", 0, {0}}
+#define s3w_v1_AppCommand_init_default           {0, "", 0, false, s3w_v1_Status_init_default, ""}
+#define s3w_v1_HttpProxyRequest_init_default     {0, "", 0, "", "", {0, {0}}, 0}
+#define s3w_v1_HttpProxyResponse_init_default    {0, 0, 0, 0, {0, {0}}, 0, 0, 0}
+#define s3w_v1_TransferBegin_init_default        {0, 0, 0, {0}, "", 0, 0}
+#define s3w_v1_TransferStatus_init_default       {0, 0, false, s3w_v1_Status_init_default}
+#define s3w_v1_TransferEnd_init_default          {0, 0, false, s3w_v1_Status_init_default}
+#define s3w_v1_WifiConfig_init_default           {0, "", "", 0}
+#define s3w_v1_WifiStatus_init_default           {0, 0, "", 0, "", 0, "", 0, {"", "", "", "", ""}}
+#define s3w_v1_HaConfig_init_default             {"", "", 0, {s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default, s3w_v1_HaConfig_Entity_init_default}}
+#define s3w_v1_HaConfig_Entity_init_default      {"", "", 0}
+#define s3w_v1_HaCommand_init_default            {0, ""}
+#define s3w_v1_HaStates_init_default             {0, {s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default, s3w_v1_HaStates_State_init_default}}
+#define s3w_v1_HaStates_State_init_default       {"", "", ""}
+#define s3w_v1_ScreenshotRequest_init_default    {0}
+#define s3w_v1_LicenseInstall_init_default       {{0, {0}}}
+#define s3w_v1_LicenseStatus_init_default        {0, 0, 0, 0, 0, {0, {0}}, {0, {0}}}
 #define s3w_v1_Envelope_init_zero                {0, 0, false, s3w_v1_Status_init_zero, 0, {s3w_v1_Hello_init_zero}}
 #define s3w_v1_Status_init_zero                  {0, ""}
 #define s3w_v1_Hello_init_zero                   {0, 0, "", 0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}, "", "", ""}
 #define s3w_v1_HelloAck_init_zero                {0, 0, "", "", "", 0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}, 0, 0, 0, 0}
 #define s3w_v1_TimeSync_init_zero                {0, "", "", 0}
 #define s3w_v1_Ack_init_zero                     {0}
+#define s3w_v1_DeviceStatus_init_zero            {0, 0, 0, 0, 0, 0}
+#define s3w_v1_NotificationPosted_init_zero      {0, "", "", 0, "", "", 0, 0, 0, {s3w_v1_NotificationPosted_Action_init_zero, s3w_v1_NotificationPosted_Action_init_zero, s3w_v1_NotificationPosted_Action_init_zero}, 0, 0}
+#define s3w_v1_NotificationPosted_Action_init_zero {0, "", 0}
+#define s3w_v1_NotificationRemoved_init_zero     {0}
+#define s3w_v1_NotificationAction_init_zero      {0, 0, "", 0}
+#define s3w_v1_AppIcon_init_zero                 {0, 0, 0, {0, {0}}}
+#define s3w_v1_TextBitmap_init_zero              {0, 0, 0, 0, {0, {0}}}
+#define s3w_v1_FindDevice_init_zero              {0, 0}
+#define s3w_v1_CallState_init_zero               {0, 0, "", "", 0, 0, 0, 0}
+#define s3w_v1_CallCommand_init_zero             {0, 0}
+#define s3w_v1_MediaState_init_zero              {"", "", "", "", 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_MediaCommand_init_zero            {0, 0}
+#define s3w_v1_MediaArtwork_init_zero            {0, 0, 0, {0, {0}}}
+#define s3w_v1_WeatherUpdate_init_zero           {0, "", false, s3w_v1_WeatherUpdate_Current_init_zero, 0, {s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero, s3w_v1_WeatherUpdate_Hour_init_zero}, 0, {s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero, s3w_v1_WeatherUpdate_Day_init_zero}}
+#define s3w_v1_WeatherUpdate_Current_init_zero   {0, 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_WeatherUpdate_Hour_init_zero      {0, 0, 0, 0, 0}
+#define s3w_v1_WeatherUpdate_Day_init_zero       {0, 0, 0, 0, 0, 0, 0, 0}
+#define s3w_v1_CalendarUpdate_init_zero          {0, 0, {s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero, s3w_v1_CalendarUpdate_Event_init_zero}}
+#define s3w_v1_CalendarUpdate_Event_init_zero    {0, "", 0, 0, 0, "", 0}
+#define s3w_v1_AppList_init_zero                 {0, {s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero, s3w_v1_AppList_App_init_zero}, 0, 0}
+#define s3w_v1_AppList_App_init_zero             {"", "", "", "", 0}
+#define s3w_v1_AppInstallBegin_init_zero         {"", "", 0, {0}}
+#define s3w_v1_AppCommand_init_zero              {0, "", 0, false, s3w_v1_Status_init_zero, ""}
+#define s3w_v1_HttpProxyRequest_init_zero        {0, "", 0, "", "", {0, {0}}, 0}
+#define s3w_v1_HttpProxyResponse_init_zero       {0, 0, 0, 0, {0, {0}}, 0, 0, 0}
+#define s3w_v1_TransferBegin_init_zero           {0, 0, 0, {0}, "", 0, 0}
+#define s3w_v1_TransferStatus_init_zero          {0, 0, false, s3w_v1_Status_init_zero}
+#define s3w_v1_TransferEnd_init_zero             {0, 0, false, s3w_v1_Status_init_zero}
+#define s3w_v1_WifiConfig_init_zero              {0, "", "", 0}
+#define s3w_v1_WifiStatus_init_zero              {0, 0, "", 0, "", 0, "", 0, {"", "", "", "", ""}}
+#define s3w_v1_HaConfig_init_zero                {"", "", 0, {s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero, s3w_v1_HaConfig_Entity_init_zero}}
+#define s3w_v1_HaConfig_Entity_init_zero         {"", "", 0}
+#define s3w_v1_HaCommand_init_zero               {0, ""}
+#define s3w_v1_HaStates_init_zero                {0, {s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero, s3w_v1_HaStates_State_init_zero}}
+#define s3w_v1_HaStates_State_init_zero          {"", "", ""}
+#define s3w_v1_ScreenshotRequest_init_zero       {0}
+#define s3w_v1_LicenseInstall_init_zero          {{0, {0}}}
+#define s3w_v1_LicenseStatus_init_zero           {0, 0, 0, 0, 0, {0, {0}}, {0, {0}}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define s3w_v1_Status_code_tag                   1
@@ -139,6 +896,181 @@ extern "C" {
 #define s3w_v1_TimeSync_tz_posix_tag             2
 #define s3w_v1_TimeSync_tz_name_tag              3
 #define s3w_v1_TimeSync_is_24h_tag               4
+#define s3w_v1_DeviceStatus_battery_pct_tag      1
+#define s3w_v1_DeviceStatus_charging_tag         2
+#define s3w_v1_DeviceStatus_usb_power_tag        3
+#define s3w_v1_DeviceStatus_storage_free_kb_tag  4
+#define s3w_v1_DeviceStatus_storage_total_kb_tag 5
+#define s3w_v1_DeviceStatus_time_valid_tag       6
+#define s3w_v1_NotificationPosted_Action_id_tag  1
+#define s3w_v1_NotificationPosted_Action_title_tag 2
+#define s3w_v1_NotificationPosted_Action_is_reply_tag 3
+#define s3w_v1_NotificationPosted_nid_tag        1
+#define s3w_v1_NotificationPosted_app_id_tag     2
+#define s3w_v1_NotificationPosted_app_name_tag   3
+#define s3w_v1_NotificationPosted_icon_hash_tag  4
+#define s3w_v1_NotificationPosted_title_tag      5
+#define s3w_v1_NotificationPosted_text_tag       6
+#define s3w_v1_NotificationPosted_when_ms_tag    7
+#define s3w_v1_NotificationPosted_category_tag   8
+#define s3w_v1_NotificationPosted_actions_tag    9
+#define s3w_v1_NotificationPosted_silent_tag     10
+#define s3w_v1_NotificationPosted_text_bitmap_id_tag 11
+#define s3w_v1_NotificationRemoved_nid_tag       1
+#define s3w_v1_NotificationAction_nid_tag        1
+#define s3w_v1_NotificationAction_action_id_tag  2
+#define s3w_v1_NotificationAction_reply_text_tag 3
+#define s3w_v1_NotificationAction_dismiss_tag    4
+#define s3w_v1_AppIcon_icon_hash_tag             1
+#define s3w_v1_AppIcon_width_tag                 2
+#define s3w_v1_AppIcon_height_tag                3
+#define s3w_v1_AppIcon_pixels_tag                4
+#define s3w_v1_TextBitmap_bitmap_id_tag          1
+#define s3w_v1_TextBitmap_width_tag              2
+#define s3w_v1_TextBitmap_height_tag             3
+#define s3w_v1_TextBitmap_y_tag                  4
+#define s3w_v1_TextBitmap_pixels_tag             5
+#define s3w_v1_FindDevice_target_tag             1
+#define s3w_v1_FindDevice_ring_tag               2
+#define s3w_v1_CallState_call_id_tag             1
+#define s3w_v1_CallState_state_tag               2
+#define s3w_v1_CallState_name_tag                3
+#define s3w_v1_CallState_number_tag              4
+#define s3w_v1_CallState_since_ms_tag            5
+#define s3w_v1_CallState_missed_tag              6
+#define s3w_v1_CallState_can_control_tag         7
+#define s3w_v1_CallState_outgoing_tag            8
+#define s3w_v1_CallCommand_call_id_tag           1
+#define s3w_v1_CallCommand_cmd_tag               2
+#define s3w_v1_MediaState_app_tag                1
+#define s3w_v1_MediaState_title_tag              2
+#define s3w_v1_MediaState_artist_tag             3
+#define s3w_v1_MediaState_album_tag              4
+#define s3w_v1_MediaState_playing_tag            5
+#define s3w_v1_MediaState_position_ms_tag        6
+#define s3w_v1_MediaState_duration_ms_tag        7
+#define s3w_v1_MediaState_volume_tag             8
+#define s3w_v1_MediaState_volume_max_tag         9
+#define s3w_v1_MediaState_artwork_hash_tag       10
+#define s3w_v1_MediaState_text_bitmap_id_tag     11
+#define s3w_v1_MediaCommand_cmd_tag              1
+#define s3w_v1_MediaCommand_value_tag            2
+#define s3w_v1_MediaArtwork_artwork_hash_tag     1
+#define s3w_v1_MediaArtwork_width_tag            2
+#define s3w_v1_MediaArtwork_height_tag           3
+#define s3w_v1_MediaArtwork_jpeg_tag             4
+#define s3w_v1_WeatherUpdate_Current_temp_dc_tag 1
+#define s3w_v1_WeatherUpdate_Current_feels_dc_tag 2
+#define s3w_v1_WeatherUpdate_Current_condition_tag 3
+#define s3w_v1_WeatherUpdate_Current_is_day_tag  4
+#define s3w_v1_WeatherUpdate_Current_humidity_pct_tag 5
+#define s3w_v1_WeatherUpdate_Current_wind_kmh_tag 6
+#define s3w_v1_WeatherUpdate_Current_uv_x10_tag  7
+#define s3w_v1_WeatherUpdate_Current_aqi_tag     8
+#define s3w_v1_WeatherUpdate_Hour_time_tag       1
+#define s3w_v1_WeatherUpdate_Hour_temp_dc_tag    2
+#define s3w_v1_WeatherUpdate_Hour_condition_tag  3
+#define s3w_v1_WeatherUpdate_Hour_is_day_tag     4
+#define s3w_v1_WeatherUpdate_Hour_precip_pct_tag 5
+#define s3w_v1_WeatherUpdate_Day_date_tag        1
+#define s3w_v1_WeatherUpdate_Day_lo_dc_tag       2
+#define s3w_v1_WeatherUpdate_Day_hi_dc_tag       3
+#define s3w_v1_WeatherUpdate_Day_condition_tag   4
+#define s3w_v1_WeatherUpdate_Day_precip_pct_tag  5
+#define s3w_v1_WeatherUpdate_Day_sunrise_tag     6
+#define s3w_v1_WeatherUpdate_Day_sunset_tag      7
+#define s3w_v1_WeatherUpdate_Day_uv_max_x10_tag  8
+#define s3w_v1_WeatherUpdate_fetched_ms_tag      1
+#define s3w_v1_WeatherUpdate_location_tag        2
+#define s3w_v1_WeatherUpdate_current_tag         3
+#define s3w_v1_WeatherUpdate_hourly_tag          4
+#define s3w_v1_WeatherUpdate_daily_tag           5
+#define s3w_v1_CalendarUpdate_Event_id_tag       1
+#define s3w_v1_CalendarUpdate_Event_title_tag    2
+#define s3w_v1_CalendarUpdate_Event_start_tag    3
+#define s3w_v1_CalendarUpdate_Event_end_tag      4
+#define s3w_v1_CalendarUpdate_Event_all_day_tag  5
+#define s3w_v1_CalendarUpdate_Event_location_tag 6
+#define s3w_v1_CalendarUpdate_Event_color_tag    7
+#define s3w_v1_CalendarUpdate_synced_ms_tag      1
+#define s3w_v1_CalendarUpdate_events_tag         2
+#define s3w_v1_AppList_App_id_tag                1
+#define s3w_v1_AppList_App_name_tag              2
+#define s3w_v1_AppList_App_version_tag           3
+#define s3w_v1_AppList_App_category_tag          4
+#define s3w_v1_AppList_App_system_tag            5
+#define s3w_v1_AppList_apps_tag                  1
+#define s3w_v1_AppList_storage_free_kb_tag       2
+#define s3w_v1_AppList_api_level_tag             3
+#define s3w_v1_AppInstallBegin_app_id_tag        1
+#define s3w_v1_AppInstallBegin_version_tag       2
+#define s3w_v1_AppInstallBegin_size_tag          3
+#define s3w_v1_AppInstallBegin_sha256_tag        4
+#define s3w_v1_AppCommand_cmd_tag                1
+#define s3w_v1_AppCommand_app_id_tag             2
+#define s3w_v1_AppCommand_install_tag            3
+#define s3w_v1_AppCommand_result_tag             4
+#define s3w_v1_AppCommand_version_tag            5
+#define s3w_v1_HttpProxyRequest_request_id_tag   1
+#define s3w_v1_HttpProxyRequest_app_id_tag       2
+#define s3w_v1_HttpProxyRequest_method_tag       3
+#define s3w_v1_HttpProxyRequest_url_tag          4
+#define s3w_v1_HttpProxyRequest_content_type_tag 5
+#define s3w_v1_HttpProxyRequest_body_tag         6
+#define s3w_v1_HttpProxyRequest_max_bytes_tag    7
+#define s3w_v1_HttpProxyResponse_request_id_tag  1
+#define s3w_v1_HttpProxyResponse_status_tag      2
+#define s3w_v1_HttpProxyResponse_error_tag       3
+#define s3w_v1_HttpProxyResponse_offset_tag      4
+#define s3w_v1_HttpProxyResponse_body_tag        5
+#define s3w_v1_HttpProxyResponse_last_tag        6
+#define s3w_v1_HttpProxyResponse_total_tag       7
+#define s3w_v1_HttpProxyResponse_truncated_tag   8
+#define s3w_v1_TransferBegin_transfer_id_tag     1
+#define s3w_v1_TransferBegin_kind_tag            2
+#define s3w_v1_TransferBegin_size_tag            3
+#define s3w_v1_TransferBegin_sha256_tag          4
+#define s3w_v1_TransferBegin_name_tag            5
+#define s3w_v1_TransferBegin_window_tag          6
+#define s3w_v1_TransferBegin_chunk_size_tag      7
+#define s3w_v1_TransferStatus_transfer_id_tag    1
+#define s3w_v1_TransferStatus_next_offset_tag    2
+#define s3w_v1_TransferStatus_status_tag         3
+#define s3w_v1_TransferEnd_transfer_id_tag       1
+#define s3w_v1_TransferEnd_verified_tag          2
+#define s3w_v1_TransferEnd_status_tag            3
+#define s3w_v1_WifiConfig_op_tag                 1
+#define s3w_v1_WifiConfig_ssid_tag               2
+#define s3w_v1_WifiConfig_password_tag           3
+#define s3w_v1_WifiConfig_on_tag                 4
+#define s3w_v1_WifiStatus_on_tag                 1
+#define s3w_v1_WifiStatus_state_tag              2
+#define s3w_v1_WifiStatus_ssid_tag               3
+#define s3w_v1_WifiStatus_rssi_tag               4
+#define s3w_v1_WifiStatus_ip_tag                 5
+#define s3w_v1_WifiStatus_error_tag              6
+#define s3w_v1_WifiStatus_error_ssid_tag         7
+#define s3w_v1_WifiStatus_saved_tag              8
+#define s3w_v1_HaConfig_Entity_entity_id_tag     1
+#define s3w_v1_HaConfig_Entity_name_tag          2
+#define s3w_v1_HaConfig_Entity_kind_tag          3
+#define s3w_v1_HaConfig_url_tag                  1
+#define s3w_v1_HaConfig_token_tag                2
+#define s3w_v1_HaConfig_entities_tag             3
+#define s3w_v1_HaCommand_op_tag                  1
+#define s3w_v1_HaCommand_entity_id_tag           2
+#define s3w_v1_HaStates_State_entity_id_tag      1
+#define s3w_v1_HaStates_State_state_tag          2
+#define s3w_v1_HaStates_State_unit_tag           3
+#define s3w_v1_HaStates_states_tag               1
+#define s3w_v1_LicenseInstall_license_tag        1
+#define s3w_v1_LicenseStatus_result_tag          1
+#define s3w_v1_LicenseStatus_pro_tag             2
+#define s3w_v1_LicenseStatus_kind_tag            3
+#define s3w_v1_LicenseStatus_issued_tag          4
+#define s3w_v1_LicenseStatus_expires_tag         5
+#define s3w_v1_LicenseStatus_mac_tag             6
+#define s3w_v1_LicenseStatus_order_tag           7
 #define s3w_v1_Envelope_id_tag                   1
 #define s3w_v1_Envelope_reply_to_tag             2
 #define s3w_v1_Envelope_status_tag               3
@@ -146,6 +1078,37 @@ extern "C" {
 #define s3w_v1_Envelope_hello_ack_tag            11
 #define s3w_v1_Envelope_time_sync_tag            12
 #define s3w_v1_Envelope_ack_tag                  13
+#define s3w_v1_Envelope_device_status_tag        14
+#define s3w_v1_Envelope_notif_posted_tag         20
+#define s3w_v1_Envelope_notif_removed_tag        21
+#define s3w_v1_Envelope_notif_action_tag         22
+#define s3w_v1_Envelope_app_icon_tag             23
+#define s3w_v1_Envelope_text_bitmap_tag          24
+#define s3w_v1_Envelope_call_state_tag           30
+#define s3w_v1_Envelope_call_command_tag         31
+#define s3w_v1_Envelope_media_state_tag          40
+#define s3w_v1_Envelope_media_command_tag        41
+#define s3w_v1_Envelope_media_artwork_tag        42
+#define s3w_v1_Envelope_media_text_bitmap_tag    43
+#define s3w_v1_Envelope_weather_tag              50
+#define s3w_v1_Envelope_calendar_tag             51
+#define s3w_v1_Envelope_find_tag                 70
+#define s3w_v1_Envelope_app_list_tag             90
+#define s3w_v1_Envelope_app_install_tag          91
+#define s3w_v1_Envelope_app_cmd_tag              92
+#define s3w_v1_Envelope_http_req_tag             96
+#define s3w_v1_Envelope_http_resp_tag            97
+#define s3w_v1_Envelope_xfer_begin_tag           100
+#define s3w_v1_Envelope_xfer_status_tag          101
+#define s3w_v1_Envelope_xfer_end_tag             102
+#define s3w_v1_Envelope_wifi_config_tag          120
+#define s3w_v1_Envelope_wifi_status_tag          121
+#define s3w_v1_Envelope_ha_config_tag            140
+#define s3w_v1_Envelope_ha_command_tag           141
+#define s3w_v1_Envelope_ha_states_tag            142
+#define s3w_v1_Envelope_screenshot_tag           160
+#define s3w_v1_Envelope_license_install_tag      180
+#define s3w_v1_Envelope_license_status_tag       181
 
 /* Struct field encoding specification for nanopb */
 #define s3w_v1_Envelope_FIELDLIST(X, a) \
@@ -155,7 +1118,38 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  status,            3) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (body,hello,body.hello),  10) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (body,hello_ack,body.hello_ack),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (body,time_sync,body.time_sync),  12) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (body,ack,body.ack),  13)
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,ack,body.ack),  13) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,device_status,body.device_status),  14) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,notif_posted,body.notif_posted),  20) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,notif_removed,body.notif_removed),  21) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,notif_action,body.notif_action),  22) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,app_icon,body.app_icon),  23) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,text_bitmap,body.text_bitmap),  24) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,call_state,body.call_state),  30) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,call_command,body.call_command),  31) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,media_state,body.media_state),  40) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,media_command,body.media_command),  41) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,media_artwork,body.media_artwork),  42) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,media_text_bitmap,body.media_text_bitmap),  43) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,weather,body.weather),  50) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,calendar,body.calendar),  51) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,find,body.find),  70) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,app_list,body.app_list),  90) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,app_install,body.app_install),  91) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,app_cmd,body.app_cmd),  92) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,http_req,body.http_req),  96) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,http_resp,body.http_resp),  97) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,xfer_begin,body.xfer_begin), 100) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,xfer_status,body.xfer_status), 101) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,xfer_end,body.xfer_end), 102) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,wifi_config,body.wifi_config), 120) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,wifi_status,body.wifi_status), 121) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,ha_config,body.ha_config), 140) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,ha_command,body.ha_command), 141) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,ha_states,body.ha_states), 142) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,screenshot,body.screenshot), 160) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,license_install,body.license_install), 180) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (body,license_status,body.license_status), 181)
 #define s3w_v1_Envelope_CALLBACK NULL
 #define s3w_v1_Envelope_DEFAULT NULL
 #define s3w_v1_Envelope_status_MSGTYPE s3w_v1_Status
@@ -163,6 +1157,37 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (body,ack,body.ack),  13)
 #define s3w_v1_Envelope_body_hello_ack_MSGTYPE s3w_v1_HelloAck
 #define s3w_v1_Envelope_body_time_sync_MSGTYPE s3w_v1_TimeSync
 #define s3w_v1_Envelope_body_ack_MSGTYPE s3w_v1_Ack
+#define s3w_v1_Envelope_body_device_status_MSGTYPE s3w_v1_DeviceStatus
+#define s3w_v1_Envelope_body_notif_posted_MSGTYPE s3w_v1_NotificationPosted
+#define s3w_v1_Envelope_body_notif_removed_MSGTYPE s3w_v1_NotificationRemoved
+#define s3w_v1_Envelope_body_notif_action_MSGTYPE s3w_v1_NotificationAction
+#define s3w_v1_Envelope_body_app_icon_MSGTYPE s3w_v1_AppIcon
+#define s3w_v1_Envelope_body_text_bitmap_MSGTYPE s3w_v1_TextBitmap
+#define s3w_v1_Envelope_body_call_state_MSGTYPE s3w_v1_CallState
+#define s3w_v1_Envelope_body_call_command_MSGTYPE s3w_v1_CallCommand
+#define s3w_v1_Envelope_body_media_state_MSGTYPE s3w_v1_MediaState
+#define s3w_v1_Envelope_body_media_command_MSGTYPE s3w_v1_MediaCommand
+#define s3w_v1_Envelope_body_media_artwork_MSGTYPE s3w_v1_MediaArtwork
+#define s3w_v1_Envelope_body_media_text_bitmap_MSGTYPE s3w_v1_TextBitmap
+#define s3w_v1_Envelope_body_weather_MSGTYPE s3w_v1_WeatherUpdate
+#define s3w_v1_Envelope_body_calendar_MSGTYPE s3w_v1_CalendarUpdate
+#define s3w_v1_Envelope_body_find_MSGTYPE s3w_v1_FindDevice
+#define s3w_v1_Envelope_body_app_list_MSGTYPE s3w_v1_AppList
+#define s3w_v1_Envelope_body_app_install_MSGTYPE s3w_v1_AppInstallBegin
+#define s3w_v1_Envelope_body_app_cmd_MSGTYPE s3w_v1_AppCommand
+#define s3w_v1_Envelope_body_http_req_MSGTYPE s3w_v1_HttpProxyRequest
+#define s3w_v1_Envelope_body_http_resp_MSGTYPE s3w_v1_HttpProxyResponse
+#define s3w_v1_Envelope_body_xfer_begin_MSGTYPE s3w_v1_TransferBegin
+#define s3w_v1_Envelope_body_xfer_status_MSGTYPE s3w_v1_TransferStatus
+#define s3w_v1_Envelope_body_xfer_end_MSGTYPE s3w_v1_TransferEnd
+#define s3w_v1_Envelope_body_wifi_config_MSGTYPE s3w_v1_WifiConfig
+#define s3w_v1_Envelope_body_wifi_status_MSGTYPE s3w_v1_WifiStatus
+#define s3w_v1_Envelope_body_ha_config_MSGTYPE s3w_v1_HaConfig
+#define s3w_v1_Envelope_body_ha_command_MSGTYPE s3w_v1_HaCommand
+#define s3w_v1_Envelope_body_ha_states_MSGTYPE s3w_v1_HaStates
+#define s3w_v1_Envelope_body_screenshot_MSGTYPE s3w_v1_ScreenshotRequest
+#define s3w_v1_Envelope_body_license_install_MSGTYPE s3w_v1_LicenseInstall
+#define s3w_v1_Envelope_body_license_status_MSGTYPE s3w_v1_LicenseStatus
 
 #define s3w_v1_Status_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, INT32,    code,              1) \
@@ -208,12 +1233,389 @@ X(a, STATIC,   SINGULAR, BOOL,     is_24h,            4)
 #define s3w_v1_Ack_CALLBACK NULL
 #define s3w_v1_Ack_DEFAULT NULL
 
+#define s3w_v1_DeviceStatus_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   battery_pct,       1) \
+X(a, STATIC,   SINGULAR, BOOL,     charging,          2) \
+X(a, STATIC,   SINGULAR, BOOL,     usb_power,         3) \
+X(a, STATIC,   SINGULAR, UINT32,   storage_free_kb,   4) \
+X(a, STATIC,   SINGULAR, UINT32,   storage_total_kb,   5) \
+X(a, STATIC,   SINGULAR, BOOL,     time_valid,        6)
+#define s3w_v1_DeviceStatus_CALLBACK NULL
+#define s3w_v1_DeviceStatus_DEFAULT NULL
+
+#define s3w_v1_NotificationPosted_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   nid,               1) \
+X(a, STATIC,   SINGULAR, STRING,   app_id,            2) \
+X(a, STATIC,   SINGULAR, STRING,   app_name,          3) \
+X(a, STATIC,   SINGULAR, UINT32,   icon_hash,         4) \
+X(a, STATIC,   SINGULAR, STRING,   title,             5) \
+X(a, STATIC,   SINGULAR, STRING,   text,              6) \
+X(a, STATIC,   SINGULAR, INT64,    when_ms,           7) \
+X(a, STATIC,   SINGULAR, UINT32,   category,          8) \
+X(a, STATIC,   REPEATED, MESSAGE,  actions,           9) \
+X(a, STATIC,   SINGULAR, BOOL,     silent,           10) \
+X(a, STATIC,   SINGULAR, UINT32,   text_bitmap_id,   11)
+#define s3w_v1_NotificationPosted_CALLBACK NULL
+#define s3w_v1_NotificationPosted_DEFAULT NULL
+#define s3w_v1_NotificationPosted_actions_MSGTYPE s3w_v1_NotificationPosted_Action
+
+#define s3w_v1_NotificationPosted_Action_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   id,                1) \
+X(a, STATIC,   SINGULAR, STRING,   title,             2) \
+X(a, STATIC,   SINGULAR, BOOL,     is_reply,          3)
+#define s3w_v1_NotificationPosted_Action_CALLBACK NULL
+#define s3w_v1_NotificationPosted_Action_DEFAULT NULL
+
+#define s3w_v1_NotificationRemoved_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   nid,               1)
+#define s3w_v1_NotificationRemoved_CALLBACK NULL
+#define s3w_v1_NotificationRemoved_DEFAULT NULL
+
+#define s3w_v1_NotificationAction_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   nid,               1) \
+X(a, STATIC,   SINGULAR, UINT32,   action_id,         2) \
+X(a, STATIC,   SINGULAR, STRING,   reply_text,        3) \
+X(a, STATIC,   SINGULAR, BOOL,     dismiss,           4)
+#define s3w_v1_NotificationAction_CALLBACK NULL
+#define s3w_v1_NotificationAction_DEFAULT NULL
+
+#define s3w_v1_AppIcon_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   icon_hash,         1) \
+X(a, STATIC,   SINGULAR, UINT32,   width,             2) \
+X(a, STATIC,   SINGULAR, UINT32,   height,            3) \
+X(a, STATIC,   SINGULAR, BYTES,    pixels,            4)
+#define s3w_v1_AppIcon_CALLBACK NULL
+#define s3w_v1_AppIcon_DEFAULT NULL
+
+#define s3w_v1_TextBitmap_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   bitmap_id,         1) \
+X(a, STATIC,   SINGULAR, UINT32,   width,             2) \
+X(a, STATIC,   SINGULAR, UINT32,   height,            3) \
+X(a, STATIC,   SINGULAR, UINT32,   y,                 4) \
+X(a, STATIC,   SINGULAR, BYTES,    pixels,            5)
+#define s3w_v1_TextBitmap_CALLBACK NULL
+#define s3w_v1_TextBitmap_DEFAULT NULL
+
+#define s3w_v1_FindDevice_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   target,            1) \
+X(a, STATIC,   SINGULAR, BOOL,     ring,              2)
+#define s3w_v1_FindDevice_CALLBACK NULL
+#define s3w_v1_FindDevice_DEFAULT NULL
+
+#define s3w_v1_CallState_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   call_id,           1) \
+X(a, STATIC,   SINGULAR, UINT32,   state,             2) \
+X(a, STATIC,   SINGULAR, STRING,   name,              3) \
+X(a, STATIC,   SINGULAR, STRING,   number,            4) \
+X(a, STATIC,   SINGULAR, INT64,    since_ms,          5) \
+X(a, STATIC,   SINGULAR, BOOL,     missed,            6) \
+X(a, STATIC,   SINGULAR, BOOL,     can_control,       7) \
+X(a, STATIC,   SINGULAR, BOOL,     outgoing,          8)
+#define s3w_v1_CallState_CALLBACK NULL
+#define s3w_v1_CallState_DEFAULT NULL
+
+#define s3w_v1_CallCommand_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   call_id,           1) \
+X(a, STATIC,   SINGULAR, UINT32,   cmd,               2)
+#define s3w_v1_CallCommand_CALLBACK NULL
+#define s3w_v1_CallCommand_DEFAULT NULL
+
+#define s3w_v1_MediaState_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   app,               1) \
+X(a, STATIC,   SINGULAR, STRING,   title,             2) \
+X(a, STATIC,   SINGULAR, STRING,   artist,            3) \
+X(a, STATIC,   SINGULAR, STRING,   album,             4) \
+X(a, STATIC,   SINGULAR, BOOL,     playing,           5) \
+X(a, STATIC,   SINGULAR, UINT32,   position_ms,       6) \
+X(a, STATIC,   SINGULAR, UINT32,   duration_ms,       7) \
+X(a, STATIC,   SINGULAR, UINT32,   volume,            8) \
+X(a, STATIC,   SINGULAR, UINT32,   volume_max,        9) \
+X(a, STATIC,   SINGULAR, UINT32,   artwork_hash,     10) \
+X(a, STATIC,   SINGULAR, UINT32,   text_bitmap_id,   11)
+#define s3w_v1_MediaState_CALLBACK NULL
+#define s3w_v1_MediaState_DEFAULT NULL
+
+#define s3w_v1_MediaCommand_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   cmd,               1) \
+X(a, STATIC,   SINGULAR, UINT32,   value,             2)
+#define s3w_v1_MediaCommand_CALLBACK NULL
+#define s3w_v1_MediaCommand_DEFAULT NULL
+
+#define s3w_v1_MediaArtwork_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   artwork_hash,      1) \
+X(a, STATIC,   SINGULAR, UINT32,   width,             2) \
+X(a, STATIC,   SINGULAR, UINT32,   height,            3) \
+X(a, STATIC,   SINGULAR, BYTES,    jpeg,              4)
+#define s3w_v1_MediaArtwork_CALLBACK NULL
+#define s3w_v1_MediaArtwork_DEFAULT NULL
+
+#define s3w_v1_WeatherUpdate_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, INT64,    fetched_ms,        1) \
+X(a, STATIC,   SINGULAR, STRING,   location,          2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  current,           3) \
+X(a, STATIC,   REPEATED, MESSAGE,  hourly,            4) \
+X(a, STATIC,   REPEATED, MESSAGE,  daily,             5)
+#define s3w_v1_WeatherUpdate_CALLBACK NULL
+#define s3w_v1_WeatherUpdate_DEFAULT NULL
+#define s3w_v1_WeatherUpdate_current_MSGTYPE s3w_v1_WeatherUpdate_Current
+#define s3w_v1_WeatherUpdate_hourly_MSGTYPE s3w_v1_WeatherUpdate_Hour
+#define s3w_v1_WeatherUpdate_daily_MSGTYPE s3w_v1_WeatherUpdate_Day
+
+#define s3w_v1_WeatherUpdate_Current_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, SINT32,   temp_dc,           1) \
+X(a, STATIC,   SINGULAR, SINT32,   feels_dc,          2) \
+X(a, STATIC,   SINGULAR, UINT32,   condition,         3) \
+X(a, STATIC,   SINGULAR, BOOL,     is_day,            4) \
+X(a, STATIC,   SINGULAR, UINT32,   humidity_pct,      5) \
+X(a, STATIC,   SINGULAR, UINT32,   wind_kmh,          6) \
+X(a, STATIC,   SINGULAR, UINT32,   uv_x10,            7) \
+X(a, STATIC,   SINGULAR, UINT32,   aqi,               8)
+#define s3w_v1_WeatherUpdate_Current_CALLBACK NULL
+#define s3w_v1_WeatherUpdate_Current_DEFAULT NULL
+
+#define s3w_v1_WeatherUpdate_Hour_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   time,              1) \
+X(a, STATIC,   SINGULAR, SINT32,   temp_dc,           2) \
+X(a, STATIC,   SINGULAR, UINT32,   condition,         3) \
+X(a, STATIC,   SINGULAR, BOOL,     is_day,            4) \
+X(a, STATIC,   SINGULAR, UINT32,   precip_pct,        5)
+#define s3w_v1_WeatherUpdate_Hour_CALLBACK NULL
+#define s3w_v1_WeatherUpdate_Hour_DEFAULT NULL
+
+#define s3w_v1_WeatherUpdate_Day_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   date,              1) \
+X(a, STATIC,   SINGULAR, SINT32,   lo_dc,             2) \
+X(a, STATIC,   SINGULAR, SINT32,   hi_dc,             3) \
+X(a, STATIC,   SINGULAR, UINT32,   condition,         4) \
+X(a, STATIC,   SINGULAR, UINT32,   precip_pct,        5) \
+X(a, STATIC,   SINGULAR, UINT32,   sunrise,           6) \
+X(a, STATIC,   SINGULAR, UINT32,   sunset,            7) \
+X(a, STATIC,   SINGULAR, UINT32,   uv_max_x10,        8)
+#define s3w_v1_WeatherUpdate_Day_CALLBACK NULL
+#define s3w_v1_WeatherUpdate_Day_DEFAULT NULL
+
+#define s3w_v1_CalendarUpdate_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, INT64,    synced_ms,         1) \
+X(a, STATIC,   REPEATED, MESSAGE,  events,            2)
+#define s3w_v1_CalendarUpdate_CALLBACK NULL
+#define s3w_v1_CalendarUpdate_DEFAULT NULL
+#define s3w_v1_CalendarUpdate_events_MSGTYPE s3w_v1_CalendarUpdate_Event
+
+#define s3w_v1_CalendarUpdate_Event_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   id,                1) \
+X(a, STATIC,   SINGULAR, STRING,   title,             2) \
+X(a, STATIC,   SINGULAR, UINT32,   start,             3) \
+X(a, STATIC,   SINGULAR, UINT32,   end,               4) \
+X(a, STATIC,   SINGULAR, BOOL,     all_day,           5) \
+X(a, STATIC,   SINGULAR, STRING,   location,          6) \
+X(a, STATIC,   SINGULAR, UINT32,   color,             7)
+#define s3w_v1_CalendarUpdate_Event_CALLBACK NULL
+#define s3w_v1_CalendarUpdate_Event_DEFAULT NULL
+
+#define s3w_v1_AppList_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, MESSAGE,  apps,              1) \
+X(a, STATIC,   SINGULAR, UINT32,   storage_free_kb,   2) \
+X(a, STATIC,   SINGULAR, UINT32,   api_level,         3)
+#define s3w_v1_AppList_CALLBACK NULL
+#define s3w_v1_AppList_DEFAULT NULL
+#define s3w_v1_AppList_apps_MSGTYPE s3w_v1_AppList_App
+
+#define s3w_v1_AppList_App_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   id,                1) \
+X(a, STATIC,   SINGULAR, STRING,   name,              2) \
+X(a, STATIC,   SINGULAR, STRING,   version,           3) \
+X(a, STATIC,   SINGULAR, STRING,   category,          4) \
+X(a, STATIC,   SINGULAR, BOOL,     system,            5)
+#define s3w_v1_AppList_App_CALLBACK NULL
+#define s3w_v1_AppList_App_DEFAULT NULL
+
+#define s3w_v1_AppInstallBegin_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   app_id,            1) \
+X(a, STATIC,   SINGULAR, STRING,   version,           2) \
+X(a, STATIC,   SINGULAR, UINT32,   size,              3) \
+X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, sha256,            4)
+#define s3w_v1_AppInstallBegin_CALLBACK NULL
+#define s3w_v1_AppInstallBegin_DEFAULT NULL
+
+#define s3w_v1_AppCommand_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   cmd,               1) \
+X(a, STATIC,   SINGULAR, STRING,   app_id,            2) \
+X(a, STATIC,   SINGULAR, BOOL,     install,           3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  result,            4) \
+X(a, STATIC,   SINGULAR, STRING,   version,           5)
+#define s3w_v1_AppCommand_CALLBACK NULL
+#define s3w_v1_AppCommand_DEFAULT NULL
+#define s3w_v1_AppCommand_result_MSGTYPE s3w_v1_Status
+
+#define s3w_v1_HttpProxyRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   request_id,        1) \
+X(a, STATIC,   SINGULAR, STRING,   app_id,            2) \
+X(a, STATIC,   SINGULAR, UINT32,   method,            3) \
+X(a, STATIC,   SINGULAR, STRING,   url,               4) \
+X(a, STATIC,   SINGULAR, STRING,   content_type,      5) \
+X(a, STATIC,   SINGULAR, BYTES,    body,              6) \
+X(a, STATIC,   SINGULAR, UINT32,   max_bytes,         7)
+#define s3w_v1_HttpProxyRequest_CALLBACK NULL
+#define s3w_v1_HttpProxyRequest_DEFAULT NULL
+
+#define s3w_v1_HttpProxyResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   request_id,        1) \
+X(a, STATIC,   SINGULAR, UINT32,   status,            2) \
+X(a, STATIC,   SINGULAR, UINT32,   error,             3) \
+X(a, STATIC,   SINGULAR, UINT32,   offset,            4) \
+X(a, STATIC,   SINGULAR, BYTES,    body,              5) \
+X(a, STATIC,   SINGULAR, BOOL,     last,              6) \
+X(a, STATIC,   SINGULAR, UINT32,   total,             7) \
+X(a, STATIC,   SINGULAR, BOOL,     truncated,         8)
+#define s3w_v1_HttpProxyResponse_CALLBACK NULL
+#define s3w_v1_HttpProxyResponse_DEFAULT NULL
+
+#define s3w_v1_TransferBegin_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   transfer_id,       1) \
+X(a, STATIC,   SINGULAR, UINT32,   kind,              2) \
+X(a, STATIC,   SINGULAR, UINT32,   size,              3) \
+X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, sha256,            4) \
+X(a, STATIC,   SINGULAR, STRING,   name,              5) \
+X(a, STATIC,   SINGULAR, UINT32,   window,            6) \
+X(a, STATIC,   SINGULAR, UINT32,   chunk_size,        7)
+#define s3w_v1_TransferBegin_CALLBACK NULL
+#define s3w_v1_TransferBegin_DEFAULT NULL
+
+#define s3w_v1_TransferStatus_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   transfer_id,       1) \
+X(a, STATIC,   SINGULAR, UINT32,   next_offset,       2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            3)
+#define s3w_v1_TransferStatus_CALLBACK NULL
+#define s3w_v1_TransferStatus_DEFAULT NULL
+#define s3w_v1_TransferStatus_status_MSGTYPE s3w_v1_Status
+
+#define s3w_v1_TransferEnd_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   transfer_id,       1) \
+X(a, STATIC,   SINGULAR, BOOL,     verified,          2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            3)
+#define s3w_v1_TransferEnd_CALLBACK NULL
+#define s3w_v1_TransferEnd_DEFAULT NULL
+#define s3w_v1_TransferEnd_status_MSGTYPE s3w_v1_Status
+
+#define s3w_v1_WifiConfig_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   op,                1) \
+X(a, STATIC,   SINGULAR, STRING,   ssid,              2) \
+X(a, STATIC,   SINGULAR, STRING,   password,          3) \
+X(a, STATIC,   SINGULAR, BOOL,     on,                4)
+#define s3w_v1_WifiConfig_CALLBACK NULL
+#define s3w_v1_WifiConfig_DEFAULT NULL
+
+#define s3w_v1_WifiStatus_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     on,                1) \
+X(a, STATIC,   SINGULAR, UINT32,   state,             2) \
+X(a, STATIC,   SINGULAR, STRING,   ssid,              3) \
+X(a, STATIC,   SINGULAR, SINT32,   rssi,              4) \
+X(a, STATIC,   SINGULAR, STRING,   ip,                5) \
+X(a, STATIC,   SINGULAR, UINT32,   error,             6) \
+X(a, STATIC,   SINGULAR, STRING,   error_ssid,        7) \
+X(a, STATIC,   REPEATED, STRING,   saved,             8)
+#define s3w_v1_WifiStatus_CALLBACK NULL
+#define s3w_v1_WifiStatus_DEFAULT NULL
+
+#define s3w_v1_HaConfig_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   url,               1) \
+X(a, STATIC,   SINGULAR, STRING,   token,             2) \
+X(a, STATIC,   REPEATED, MESSAGE,  entities,          3)
+#define s3w_v1_HaConfig_CALLBACK NULL
+#define s3w_v1_HaConfig_DEFAULT NULL
+#define s3w_v1_HaConfig_entities_MSGTYPE s3w_v1_HaConfig_Entity
+
+#define s3w_v1_HaConfig_Entity_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   entity_id,         1) \
+X(a, STATIC,   SINGULAR, STRING,   name,              2) \
+X(a, STATIC,   SINGULAR, UINT32,   kind,              3)
+#define s3w_v1_HaConfig_Entity_CALLBACK NULL
+#define s3w_v1_HaConfig_Entity_DEFAULT NULL
+
+#define s3w_v1_HaCommand_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   op,                1) \
+X(a, STATIC,   SINGULAR, STRING,   entity_id,         2)
+#define s3w_v1_HaCommand_CALLBACK NULL
+#define s3w_v1_HaCommand_DEFAULT NULL
+
+#define s3w_v1_HaStates_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, MESSAGE,  states,            1)
+#define s3w_v1_HaStates_CALLBACK NULL
+#define s3w_v1_HaStates_DEFAULT NULL
+#define s3w_v1_HaStates_states_MSGTYPE s3w_v1_HaStates_State
+
+#define s3w_v1_HaStates_State_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   entity_id,         1) \
+X(a, STATIC,   SINGULAR, STRING,   state,             2) \
+X(a, STATIC,   SINGULAR, STRING,   unit,              3)
+#define s3w_v1_HaStates_State_CALLBACK NULL
+#define s3w_v1_HaStates_State_DEFAULT NULL
+
+#define s3w_v1_ScreenshotRequest_FIELDLIST(X, a) \
+
+#define s3w_v1_ScreenshotRequest_CALLBACK NULL
+#define s3w_v1_ScreenshotRequest_DEFAULT NULL
+
+#define s3w_v1_LicenseInstall_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BYTES,    license,           1)
+#define s3w_v1_LicenseInstall_CALLBACK NULL
+#define s3w_v1_LicenseInstall_DEFAULT NULL
+
+#define s3w_v1_LicenseStatus_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   result,            1) \
+X(a, STATIC,   SINGULAR, BOOL,     pro,               2) \
+X(a, STATIC,   SINGULAR, UINT32,   kind,              3) \
+X(a, STATIC,   SINGULAR, INT64,    issued,            4) \
+X(a, STATIC,   SINGULAR, INT64,    expires,           5) \
+X(a, STATIC,   SINGULAR, BYTES,    mac,               6) \
+X(a, STATIC,   SINGULAR, BYTES,    order,             7)
+#define s3w_v1_LicenseStatus_CALLBACK NULL
+#define s3w_v1_LicenseStatus_DEFAULT NULL
+
 extern const pb_msgdesc_t s3w_v1_Envelope_msg;
 extern const pb_msgdesc_t s3w_v1_Status_msg;
 extern const pb_msgdesc_t s3w_v1_Hello_msg;
 extern const pb_msgdesc_t s3w_v1_HelloAck_msg;
 extern const pb_msgdesc_t s3w_v1_TimeSync_msg;
 extern const pb_msgdesc_t s3w_v1_Ack_msg;
+extern const pb_msgdesc_t s3w_v1_DeviceStatus_msg;
+extern const pb_msgdesc_t s3w_v1_NotificationPosted_msg;
+extern const pb_msgdesc_t s3w_v1_NotificationPosted_Action_msg;
+extern const pb_msgdesc_t s3w_v1_NotificationRemoved_msg;
+extern const pb_msgdesc_t s3w_v1_NotificationAction_msg;
+extern const pb_msgdesc_t s3w_v1_AppIcon_msg;
+extern const pb_msgdesc_t s3w_v1_TextBitmap_msg;
+extern const pb_msgdesc_t s3w_v1_FindDevice_msg;
+extern const pb_msgdesc_t s3w_v1_CallState_msg;
+extern const pb_msgdesc_t s3w_v1_CallCommand_msg;
+extern const pb_msgdesc_t s3w_v1_MediaState_msg;
+extern const pb_msgdesc_t s3w_v1_MediaCommand_msg;
+extern const pb_msgdesc_t s3w_v1_MediaArtwork_msg;
+extern const pb_msgdesc_t s3w_v1_WeatherUpdate_msg;
+extern const pb_msgdesc_t s3w_v1_WeatherUpdate_Current_msg;
+extern const pb_msgdesc_t s3w_v1_WeatherUpdate_Hour_msg;
+extern const pb_msgdesc_t s3w_v1_WeatherUpdate_Day_msg;
+extern const pb_msgdesc_t s3w_v1_CalendarUpdate_msg;
+extern const pb_msgdesc_t s3w_v1_CalendarUpdate_Event_msg;
+extern const pb_msgdesc_t s3w_v1_AppList_msg;
+extern const pb_msgdesc_t s3w_v1_AppList_App_msg;
+extern const pb_msgdesc_t s3w_v1_AppInstallBegin_msg;
+extern const pb_msgdesc_t s3w_v1_AppCommand_msg;
+extern const pb_msgdesc_t s3w_v1_HttpProxyRequest_msg;
+extern const pb_msgdesc_t s3w_v1_HttpProxyResponse_msg;
+extern const pb_msgdesc_t s3w_v1_TransferBegin_msg;
+extern const pb_msgdesc_t s3w_v1_TransferStatus_msg;
+extern const pb_msgdesc_t s3w_v1_TransferEnd_msg;
+extern const pb_msgdesc_t s3w_v1_WifiConfig_msg;
+extern const pb_msgdesc_t s3w_v1_WifiStatus_msg;
+extern const pb_msgdesc_t s3w_v1_HaConfig_msg;
+extern const pb_msgdesc_t s3w_v1_HaConfig_Entity_msg;
+extern const pb_msgdesc_t s3w_v1_HaCommand_msg;
+extern const pb_msgdesc_t s3w_v1_HaStates_msg;
+extern const pb_msgdesc_t s3w_v1_HaStates_State_msg;
+extern const pb_msgdesc_t s3w_v1_ScreenshotRequest_msg;
+extern const pb_msgdesc_t s3w_v1_LicenseInstall_msg;
+extern const pb_msgdesc_t s3w_v1_LicenseStatus_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define s3w_v1_Envelope_fields &s3w_v1_Envelope_msg
@@ -222,15 +1624,91 @@ extern const pb_msgdesc_t s3w_v1_Ack_msg;
 #define s3w_v1_HelloAck_fields &s3w_v1_HelloAck_msg
 #define s3w_v1_TimeSync_fields &s3w_v1_TimeSync_msg
 #define s3w_v1_Ack_fields &s3w_v1_Ack_msg
+#define s3w_v1_DeviceStatus_fields &s3w_v1_DeviceStatus_msg
+#define s3w_v1_NotificationPosted_fields &s3w_v1_NotificationPosted_msg
+#define s3w_v1_NotificationPosted_Action_fields &s3w_v1_NotificationPosted_Action_msg
+#define s3w_v1_NotificationRemoved_fields &s3w_v1_NotificationRemoved_msg
+#define s3w_v1_NotificationAction_fields &s3w_v1_NotificationAction_msg
+#define s3w_v1_AppIcon_fields &s3w_v1_AppIcon_msg
+#define s3w_v1_TextBitmap_fields &s3w_v1_TextBitmap_msg
+#define s3w_v1_FindDevice_fields &s3w_v1_FindDevice_msg
+#define s3w_v1_CallState_fields &s3w_v1_CallState_msg
+#define s3w_v1_CallCommand_fields &s3w_v1_CallCommand_msg
+#define s3w_v1_MediaState_fields &s3w_v1_MediaState_msg
+#define s3w_v1_MediaCommand_fields &s3w_v1_MediaCommand_msg
+#define s3w_v1_MediaArtwork_fields &s3w_v1_MediaArtwork_msg
+#define s3w_v1_WeatherUpdate_fields &s3w_v1_WeatherUpdate_msg
+#define s3w_v1_WeatherUpdate_Current_fields &s3w_v1_WeatherUpdate_Current_msg
+#define s3w_v1_WeatherUpdate_Hour_fields &s3w_v1_WeatherUpdate_Hour_msg
+#define s3w_v1_WeatherUpdate_Day_fields &s3w_v1_WeatherUpdate_Day_msg
+#define s3w_v1_CalendarUpdate_fields &s3w_v1_CalendarUpdate_msg
+#define s3w_v1_CalendarUpdate_Event_fields &s3w_v1_CalendarUpdate_Event_msg
+#define s3w_v1_AppList_fields &s3w_v1_AppList_msg
+#define s3w_v1_AppList_App_fields &s3w_v1_AppList_App_msg
+#define s3w_v1_AppInstallBegin_fields &s3w_v1_AppInstallBegin_msg
+#define s3w_v1_AppCommand_fields &s3w_v1_AppCommand_msg
+#define s3w_v1_HttpProxyRequest_fields &s3w_v1_HttpProxyRequest_msg
+#define s3w_v1_HttpProxyResponse_fields &s3w_v1_HttpProxyResponse_msg
+#define s3w_v1_TransferBegin_fields &s3w_v1_TransferBegin_msg
+#define s3w_v1_TransferStatus_fields &s3w_v1_TransferStatus_msg
+#define s3w_v1_TransferEnd_fields &s3w_v1_TransferEnd_msg
+#define s3w_v1_WifiConfig_fields &s3w_v1_WifiConfig_msg
+#define s3w_v1_WifiStatus_fields &s3w_v1_WifiStatus_msg
+#define s3w_v1_HaConfig_fields &s3w_v1_HaConfig_msg
+#define s3w_v1_HaConfig_Entity_fields &s3w_v1_HaConfig_Entity_msg
+#define s3w_v1_HaCommand_fields &s3w_v1_HaCommand_msg
+#define s3w_v1_HaStates_fields &s3w_v1_HaStates_msg
+#define s3w_v1_HaStates_State_fields &s3w_v1_HaStates_State_msg
+#define s3w_v1_ScreenshotRequest_fields &s3w_v1_ScreenshotRequest_msg
+#define s3w_v1_LicenseInstall_fields &s3w_v1_LicenseInstall_msg
+#define s3w_v1_LicenseStatus_fields &s3w_v1_LicenseStatus_msg
 
 /* Maximum encoded size of messages (where known) */
 #define S3W_V1_ENVELOPE_PB_H_MAX_SIZE            s3w_v1_Envelope_size
 #define s3w_v1_Ack_size                          0
-#define s3w_v1_Envelope_size                     1137
+#define s3w_v1_AppCommand_size                   184
+#define s3w_v1_AppIcon_size                      6933
+#define s3w_v1_AppInstallBegin_size              106
+#define s3w_v1_AppList_App_size                  110
+#define s3w_v1_AppList_size                      7180
+#define s3w_v1_CalendarUpdate_Event_size         140
+#define s3w_v1_CalendarUpdate_size               2299
+#define s3w_v1_CallCommand_size                  12
+#define s3w_v1_CallState_size                    127
+#define s3w_v1_DeviceStatus_size                 24
+#define s3w_v1_Envelope_size                     8355
+#define s3w_v1_FindDevice_size                   8
+#define s3w_v1_HaCommand_size                    71
+#define s3w_v1_HaConfig_Entity_size              104
+#define s3w_v1_HaConfig_size                     1660
+#define s3w_v1_HaStates_State_size               115
+#define s3w_v1_HaStates_size                     1404
 #define s3w_v1_HelloAck_size                     919
 #define s3w_v1_Hello_size                        1012
+#define s3w_v1_HttpProxyRequest_size             4745
+#define s3w_v1_HttpProxyResponse_size            8229
+#define s3w_v1_LicenseInstall_size               131
+#define s3w_v1_LicenseStatus_size                62
+#define s3w_v1_MediaArtwork_size                 8213
+#define s3w_v1_MediaCommand_size                 12
+#define s3w_v1_MediaState_size                   496
+#define s3w_v1_NotificationAction_size           272
+#define s3w_v1_NotificationPosted_Action_size    41
+#define s3w_v1_NotificationPosted_size           1519
+#define s3w_v1_NotificationRemoved_size          6
+#define s3w_v1_ScreenshotRequest_size            0
 #define s3w_v1_Status_size                       108
+#define s3w_v1_TextBitmap_size                   8219
 #define s3w_v1_TimeSync_size                     143
+#define s3w_v1_TransferBegin_size                129
+#define s3w_v1_TransferEnd_size                  118
+#define s3w_v1_TransferStatus_size               122
+#define s3w_v1_WeatherUpdate_Current_size        44
+#define s3w_v1_WeatherUpdate_Day_size            48
+#define s3w_v1_WeatherUpdate_Hour_size           26
+#define s3w_v1_WeatherUpdate_size                1144
+#define s3w_v1_WifiConfig_size                   107
+#define s3w_v1_WifiStatus_size                   275
 
 #ifdef __cplusplus
 } /* extern "C" */

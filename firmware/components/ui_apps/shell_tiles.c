@@ -3,10 +3,17 @@
 // (wf_comp_render), so tiles and complications always agree. Swipe left/right pages,
 // a swipe right on the first tile closes, a tap opens the tile's app.
 //
-// Fixed order for now.
+// Fixed order for now; user ordering (watch and phone) and mini app tiles come later
+// (docs/05 §11). The Home tile (Home Assistant, P9-05) is drawn by ha_apps.c.
+// The Community edition has only the Activity and Timer tiles (docs/10 §3).
 #include <string.h>
 
+#include "s3w_edition.h"
 #include "shell_priv.h"
+#if S3W_EDITION_PRO
+#include "media_apps.h"
+#include "weather_apps.h"
+#endif
 #include "ui_theme.h"
 #include "ui_widgets.h"
 #include "wf_engine.h"
@@ -19,20 +26,32 @@
 #define DETAIL_GAP  UI_SPACE_M
 #define DEGREE      "\xC2\xB0"
 
+typedef enum {
+    TILE_COMP,  // a complication (comp)
+    TILE_MEDIA, // the media session (media_apps_state)
+    TILE_HOME,  // Home Assistant entities (ha_apps.c)
+} tile_kind_t;
+
 typedef struct {
     const char *title;
     const char *icon;
-    wf_comp_t comp; // WF_COMP_NONE: static text (media)
+    tile_kind_t kind;
+    wf_comp_t comp; // TILE_COMP
     const char *app;
 } tile_def_t;
 
 static const tile_def_t TILES[] = {
-    {"Activity", LV_SYMBOL_REFRESH, WF_COMP_STEPS, "activity"},
-    {"Weather", LV_SYMBOL_TINT, WF_COMP_WEATHER, "weather"},
-    {"Media", LV_SYMBOL_AUDIO, WF_COMP_NONE, "media"},
-    {"Next event", LV_SYMBOL_LIST, WF_COMP_NEXT_EVENT, "calendar"},
-    {"Timer", LV_SYMBOL_LOOP, WF_COMP_TIMER, "timer"},
-    {"Heart rate", LV_SYMBOL_PLUS, WF_COMP_HEART_RATE, "heart_rate"},
+    {"Activity", LV_SYMBOL_REFRESH, TILE_COMP, WF_COMP_STEPS, "activity"},
+#if S3W_EDITION_PRO
+    {"Weather", "\xEF\x86\x85" /* sun */, TILE_COMP, WF_COMP_WEATHER, "weather"},
+    {"Media", LV_SYMBOL_AUDIO, TILE_MEDIA, WF_COMP_NONE, "media"},
+    {"Next event", LV_SYMBOL_LIST, TILE_COMP, WF_COMP_NEXT_EVENT, "calendar"},
+#endif
+    {"Timer", LV_SYMBOL_LOOP, TILE_COMP, WF_COMP_TIMER, "timer"},
+#if S3W_EDITION_PRO
+    {"Heart rate", LV_SYMBOL_PLUS, TILE_COMP, WF_COMP_HEART_RATE, "heart_rate"},
+    {"Home", LV_SYMBOL_HOME, TILE_HOME, WF_COMP_NONE, "home"},
+#endif
 };
 #define TILE_N (sizeof TILES / sizeof TILES[0])
 
@@ -40,8 +59,10 @@ typedef struct {
     lv_obj_t *icon;
     lv_obj_t *ring;   // NULL unless the complication has a gauge
     lv_obj_t *value;
-    lv_obj_t *degree; // "°" next to the value (the display font has no °)
+    lv_obj_t *degree; // "°" next to the value (the display font has no °); Media: play / pause mark
     lv_obj_t *detail;
+    lv_obj_t *text_img;       // Media: the phone-drawn title + artist in place of value / detail
+    lv_image_dsc_t *text_dsc;
 } tile_t;
 
 typedef struct {
@@ -62,15 +83,55 @@ static bool display_font_has(const char *s)
     return true;
 }
 
+#if S3W_EDITION_PRO
+// Media: the title and artist of what plays on the phone, or why there is nothing.
+static void media_refresh(tile_t *t)
+{
+    bool connected;
+    const media_state_t *st = media_apps_state(&connected);
+    const bool active = connected && st->active;
+    const char *value = !connected ? "Not connected" : !active ? "Not playing" : st->title[0] ? st->title : "Unknown";
+    const char *detail = !connected ? "Connect your phone"
+                         : !active  ? "Play music on your phone"
+                         : st->artist[0] ? st->artist
+                                         : st->app;
+    s3w_label_set_fit_text(t->value, value);
+    lv_obj_set_style_text_color(t->value, ui_color(active ? UI_COLOR_TEXT : UI_COLOR_TEXT_DIM), 0);
+    s3w_label_set_fit_text(t->detail, detail);
+    lv_label_set_text(t->degree, active ? (st->playing ? LV_SYMBOL_PLAY : LV_SYMBOL_PAUSE) : "");
+    if (t->text_img) {
+        const bool drawn = media_apps_text_show(t->text_img, t->text_dsc);
+        lv_obj_set_flag(t->value, LV_OBJ_FLAG_HIDDEN, drawn);
+        lv_obj_set_flag(t->detail, LV_OBJ_FLAG_HIDDEN, drawn);
+    }
+}
+#endif
+
 static void tile_refresh(tile_t *t, const tile_def_t *def, const wf_ctx_t *ctx)
 {
-    if (def->comp == WF_COMP_NONE) {
-        return; // static text
+#if S3W_EDITION_PRO
+    if (def->kind == TILE_MEDIA) {
+        media_refresh(t);
+        return;
     }
+    if (def->kind == TILE_HOME) {
+        return; // ha_apps.c keeps it up to date
+    }
+#endif
     wf_comp_view_t v;
     wf_comp_render(def->comp, ctx, &v);
     const uint32_t color = v.known ? v.color : UI_COLOR_TEXT_DIM;
     lv_obj_set_style_text_color(t->icon, ui_color(v.color), 0);
+#if S3W_EDITION_PRO
+    if (def->comp == WF_COMP_WEATHER) {
+        // The condition's icon (sun, clouds, rain, ...) once the phone sent a forecast.
+        const wf_data_t *d = ctx->data;
+        lv_label_set_text(t->icon, v.known ? weather_apps_symbol(d->weather, !d->weather_night) : def->icon);
+        if (v.known && !d->weather_stale) {
+            lv_obj_set_style_text_color(t->icon, ui_color(weather_apps_color(d->weather, !d->weather_night)), 0);
+        }
+    }
+#endif
 
     // Weather: "18°" -> "18" in the display font and a small "°".
     char value[sizeof v.value];
@@ -126,6 +187,11 @@ static void anim_x_cb(void *var, int32_t v)
 static void show(tiles_t *st, uint8_t index, bool animate)
 {
     st->index = index;
+#if S3W_EDITION_PRO
+    if (TILES[index].kind == TILE_HOME) {
+        ha_apps_tile_shown();
+    }
+#endif
     s3w_page_dots_set_active(st->dots, index);
     const int32_t to = -(int32_t)index * SCREEN_W;
     lv_anim_delete(st->strip, anim_x_cb);
@@ -192,15 +258,33 @@ static lv_obj_t *page_create(lv_obj_t *strip, size_t i, tile_t *t)
     t->icon = shell_label(head, def->icon, UI_FONT_TITLE, UI_COLOR_TEXT_DIM);
     shell_label(head, def->title, UI_FONT_TITLE, UI_COLOR_TEXT);
 
-    if (def->comp == WF_COMP_NONE) {
-        // Media: nothing to control until the phone link (P6).
-        lv_obj_set_style_text_color(t->icon, ui_color(0xBF5AF2), 0);
-        lv_obj_t *v = shell_label(p, "Not playing", UI_FONT_TITLE, UI_COLOR_TEXT_DIM);
-        lv_obj_align(v, LV_ALIGN_TOP_MID, 0, BODY_CY - lv_font_get_line_height(UI_FONT_TITLE));
-        lv_obj_t *d = shell_label(p, "Play music on your phone", UI_FONT_CAPTION, UI_COLOR_TEXT_DIM);
-        lv_obj_align(d, LV_ALIGN_TOP_MID, 0, BODY_CY + UI_SPACE_M);
+#if S3W_EDITION_PRO
+    if (def->kind == TILE_HOME) {
+        lv_obj_set_style_text_color(t->icon, ui_color(0xFF9F0A), 0);
+        ha_apps_tile_create(p, BODY_CY);
         return p;
     }
+    if (def->kind == TILE_MEDIA) {
+        // Media: title (one line), artist, and a play / pause mark above them.
+        lv_obj_set_style_text_color(t->icon, ui_color(0xBF5AF2), 0);
+        t->degree = shell_label(p, "", UI_FONT_TITLE, 0xBF5AF2); // the play / pause mark
+        lv_obj_align(t->degree, LV_ALIGN_TOP_MID, 0, BODY_CY - lv_font_get_line_height(UI_FONT_TITLE) * 2);
+        t->value = shell_label(p, "", UI_FONT_TITLE, UI_COLOR_TEXT);
+        t->detail = shell_label(p, "", UI_FONT_CAPTION, UI_COLOR_TEXT_DIM);
+        lv_obj_t *labels[] = {t->value, t->detail};
+        for (size_t k = 0; k < 2; k++) {
+            lv_obj_set_size(labels[k], SCREEN_W - 2 * (UI_SAFE_INSET + UI_SPACE_M),
+                            lv_font_get_line_height(lv_obj_get_style_text_font(labels[k], 0)));
+            s3w_label_fit(labels[k]); // one line, then "..."
+            lv_obj_set_style_text_align(labels[k], LV_TEXT_ALIGN_CENTER, 0);
+        }
+        lv_obj_align(t->value, LV_ALIGN_TOP_MID, 0, BODY_CY - lv_font_get_line_height(UI_FONT_TITLE));
+        lv_obj_align(t->detail, LV_ALIGN_TOP_MID, 0, BODY_CY + UI_SPACE_M);
+        t->text_img = media_apps_text_create(p, &t->text_dsc);
+        lv_obj_align(t->text_img, LV_ALIGN_TOP_MID, 0, BODY_CY - lv_font_get_line_height(UI_FONT_TITLE));
+        return p;
+    }
+#endif
     wf_comp_view_t probe;
     wf_ctx_t ctx;
     wf_ctx_init(&ctx, wf_data_get(), ui_clock_now(), ui_clock_is_24h(), ui_clock_is_valid());
@@ -247,6 +331,11 @@ static void tiles_resume(ui_screen_t *s)
 {
     tiles_t *st = ui_screen_state(s);
     refresh(st);
+#if S3W_EDITION_PRO
+    if (TILES[st->index].kind == TILE_HOME) {
+        ha_apps_tile_shown(); // back from the Home app or the face
+    }
+#endif
     // Minute updates while visible (timer, next event); data from services is
     // picked up on the next minute or when the tiles are shown again.
     ui_clock_add_listener(clock_changed, st);

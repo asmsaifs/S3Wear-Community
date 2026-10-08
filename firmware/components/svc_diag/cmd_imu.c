@@ -1,18 +1,23 @@
 // Console: `imu info|stream|steps|tap|wom|fifo|selftest|off` — QMI8658 bring-up (P1-06).
+// `imu log` (P5-01) records what the step detector sees to a CSV on the SD card; it
+// leaves svc_sensors running.
 // Interrupt-driven modes log from the INT1 handler (FreeRTOS timer task).
 // The commands take the IMU from svc_sensors (raise to wake is off meanwhile); one
 // that finishes gives it back, `imu off` gives it back after tap/wom/steps.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "bsp_s3w.h"
 #include "esp_console.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "svc_activity.h"
 #include "svc_diag_priv.h"
 #include "svc_sensors.h"
+#include "svc_storage.h"
 
 static const char *TAG = "cmd_imu";
 
@@ -56,7 +61,7 @@ static void on_imu_int(void *ctx)
     }
     if (irq.fifo & (QMI8658_FIFO_WTM | QMI8658_FIFO_FULL)) {
         size_t len = 0;
-        if (qmi8658_fifo_read(imu, s_fifo_buf, sizeof s_fifo_buf, &len) == ESP_OK) {
+        if (qmi8658_fifo_read(imu, s_fifo_buf, sizeof s_fifo_buf, &len, NULL) == ESP_OK) {
             qmi8658_raw3_t acc;
             const size_t frames = qmi8658_fifo_parse(s_fifo_buf, len, s_fifo_acc, s_fifo_gyr, &acc, NULL, 1);
             const size_t frame_bytes = (s_fifo_acc ? 6 : 0) + (s_fifo_gyr ? 6 : 0);
@@ -150,7 +155,7 @@ static int imu_fifo(qmi8658_handle_t imu, int seconds)
     s_fifo_gyr = true;
     if (qmi8658_reset(imu) != ESP_OK || qmi8658_config_accel(imu, QMI8658_ACC_4G, QMI8658_ODR_62_5HZ) != ESP_OK ||
         qmi8658_config_gyro(imu, QMI8658_GYR_512DPS, QMI8658_ODR_62_5HZ) != ESP_OK ||
-        qmi8658_enable(imu, true, true) != ESP_OK || qmi8658_fifo_config(imu, FIFO_FRAMES, FIFO_WATERMARK) != ESP_OK) {
+        qmi8658_enable(imu, true, true) != ESP_OK || qmi8658_fifo_config(imu, FIFO_FRAMES, FIFO_WATERMARK, true) != ESP_OK) {
         printf("FIFO config failed\n");
         return 1;
     }
@@ -181,6 +186,42 @@ static int imu_selftest(qmi8658_handle_t imu)
     return acc_pass && gyr_pass ? 0 : 1;
 }
 
+// `imu log <name> [s]` / `imu log stop`: /sd/imu/<name>.csv (firmware/test/activity/README.md).
+static int imu_log(int argc, char **argv)
+{
+    if (argc >= 3 && strcmp(argv[2], "stop") == 0) {
+        if (svc_activity_log_stop() != ESP_OK) {
+            printf("no log running\n");
+            return 1;
+        }
+        printf("log stopped\n");
+        return 0;
+    }
+    if (argc < 3 || strlen(argv[2]) > 24 || strchr(argv[2], '/')) {
+        printf("usage: imu log <name> [seconds] | imu log stop   (name: up to 24 chars)\n");
+        return 1;
+    }
+    if (!svc_storage_sd_check()) {
+        printf("no SD card\n");
+        return 1;
+    }
+    char path[48];
+    mkdir(SVC_STORAGE_SD_PATH "/imu", 0775); // may exist
+    snprintf(path, sizeof path, SVC_STORAGE_SD_PATH "/imu/%s.csv", argv[2]);
+    const int seconds = argc >= 4 ? atoi(argv[3]) : 0;
+    const esp_err_t err = svc_activity_log_start(path, seconds > 0 ? (uint32_t)seconds : 0);
+    if (err != ESP_OK) {
+        printf("log failed: %s\n", esp_err_to_name(err));
+        return 1;
+    }
+    if (seconds > 0) {
+        printf("logging to %s for %d s\n", path, seconds);
+    } else {
+        printf("logging to %s until `imu log stop`\n", path);
+    }
+    return 0;
+}
+
 static int cmd_imu(int argc, char **argv)
 {
     qmi8658_handle_t imu = bsp_imu_handle();
@@ -190,6 +231,9 @@ static int cmd_imu(int argc, char **argv)
     }
     const char *sub = argc >= 2 ? argv[1] : "";
     const int arg = argc >= 3 ? atoi(argv[2]) : 0;
+    if (strcmp(sub, "log") == 0) {
+        return imu_log(argc, argv);
+    }
     static const char *const k_subs[] = {"info", "stream", "steps", "tap", "wom", "fifo", "selftest", "off"};
     for (size_t i = 0; i < sizeof k_subs / sizeof k_subs[0]; i++) {
         if (strcmp(sub, k_subs[i]) == 0) {
@@ -260,7 +304,8 @@ static int cmd_imu(int argc, char **argv)
         svc_sensors_suspend(false);
         return ret;
     }
-    printf("usage: imu info | stream [s] | steps [s] | tap | wom [mg] | fifo [s] | selftest | off | reg <hex> [val]\n");
+    printf("usage: imu info | stream [s] | steps [s] | tap | wom [mg] | fifo [s] | selftest | off | reg <hex> [val]"
+           " | log <name> [s] | log stop\n");
     return 1;
 }
 
@@ -269,8 +314,9 @@ esp_err_t diag_register_imu(void)
     const esp_console_cmd_t cmd = {
         .command = "imu",
         .help = "QMI8658: info, stream [s] (10 Hz print), steps [s] (pedometer), tap, wom [mg], fifo [s] "
-                "(watermark IRQ), selftest, off",
-        .hint = "info|stream|steps|tap|wom|fifo|selftest|off",
+                "(watermark IRQ), selftest, off, log <name> [s] | log stop (step detector input to "
+                "/sd/imu/<name>.csv)",
+        .hint = "info|stream|steps|tap|wom|fifo|selftest|off|log",
         .func = cmd_imu,
     };
     return esp_console_cmd_register(&cmd);
