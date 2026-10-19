@@ -85,11 +85,11 @@ From the SDL2 simulator at the panel's native 410×502, Community build. These a
 
 | | | | |
 |---|---|---|---|
-| ![Digital face](firmware/test/ui_snapshots/community/home.png) | ![Analog face](firmware/test/ui_snapshots/community/face_analog.png) | ![Modular face](firmware/test/ui_snapshots/community/face_modular.png) | ![Neon face (face.json)](firmware/test/ui_snapshots/community/face_neon.png) |
-| ![Minimal face](firmware/test/ui_snapshots/community/face_minimal.png) | ![Dial face](firmware/test/ui_snapshots/community/face_dial.png) | ![Face picker](firmware/test/ui_snapshots/community/face_picker.png) | ![Quick settings](firmware/test/ui_snapshots/community/qs.png) |
-| ![Tiles](firmware/test/ui_snapshots/community/tiles.png) | ![Launcher](firmware/test/ui_snapshots/community/launcher_grid.png) | ![Settings](firmware/test/ui_snapshots/community/settings.png) | ![Connections](firmware/test/ui_snapshots/community/settings_connections.png) |
-| ![Alarms](firmware/test/ui_snapshots/community/clock_alarms.png) | ![Timer](firmware/test/ui_snapshots/community/clock_timer.png) | ![Stopwatch](firmware/test/ui_snapshots/community/clock_stopwatch.png) | ![World clock](firmware/test/ui_snapshots/community/clock_world.png) |
-| ![Battery](firmware/test/ui_snapshots/community/battery_app.png) | ![Charging](firmware/test/ui_snapshots/community/battery_charging.png) | ![No notifications](firmware/test/ui_snapshots/community/no_notifications.png) |  |
+| ![Digital face](firmware/test/ui_snapshots/community/home.png) | ![Analog face](firmware/test/ui_snapshots/community/face_analog.png) | ![Neon face (face.json)](firmware/test/ui_snapshots/community/face_neon.png) | ![Minimal face](firmware/test/ui_snapshots/community/face_minimal.png) |
+| ![Dial face](firmware/test/ui_snapshots/community/face_dial.png) | ![Face picker](firmware/test/ui_snapshots/community/face_picker.png) | ![Quick settings](firmware/test/ui_snapshots/community/qs.png) | ![Tiles](firmware/test/ui_snapshots/community/tiles.png) |
+| ![Launcher](firmware/test/ui_snapshots/community/launcher_grid.png) | ![Settings](firmware/test/ui_snapshots/community/settings.png) | ![Connections](firmware/test/ui_snapshots/community/settings_connections.png) | ![Alarms](firmware/test/ui_snapshots/community/clock_alarms.png) |
+| ![Timer](firmware/test/ui_snapshots/community/clock_timer.png) | ![Stopwatch](firmware/test/ui_snapshots/community/clock_stopwatch.png) | ![World clock](firmware/test/ui_snapshots/community/clock_world.png) | ![Battery](firmware/test/ui_snapshots/community/battery_app.png) |
+| ![Charging](firmware/test/ui_snapshots/community/battery_charging.png) | ![No notifications](firmware/test/ui_snapshots/community/no_notifications.png) |  |  |
 
 ## Build
 
