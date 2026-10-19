@@ -1,5 +1,13 @@
 # S3Wear Community
 
+<p align="center">
+  <img src="firmware/test/ui_snapshots/community/face_neon.png" width="160" alt="Neon watch face">
+  <img src="firmware/test/ui_snapshots/community/face_analog.png" width="160" alt="Analog watch face">
+  <img src="firmware/test/ui_snapshots/community/qs.png" width="160" alt="Quick settings">
+  <img src="firmware/test/ui_snapshots/community/clock_alarms.png" width="160" alt="Alarms">
+</p>
+<p align="center"><a href="#community-screenshots">More screenshots</a> · <a href="https://s3wear.fiqraat.com/install/">Install from your browser</a></p>
+
 Open-source smartwatch OS for the **Waveshare ESP32-S3-Touch-AMOLED-2.06**. A complete standalone watch: watch faces with always-on display, raise to wake, alarms that wake the watch from deep sleep, timers, stopwatch, world clock, do-not-disturb / sleep / theater modes, battery management and an on-watch Settings app. Every screen also runs in a desktop simulator.
 
 Status: Phases 0–3 (M1 "It's a watch").
